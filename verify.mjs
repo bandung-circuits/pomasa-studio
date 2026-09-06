@@ -769,7 +769,7 @@ test('L2 client bundle: loads and registers shell.overlay + dock entry', () => {
   assert.ok(!registrations.some((r) => r.name === 'conversation.view'), 'the in-session tab was removed')
   assert.equal(dockApps.length, 1)
   assert.equal(dockApps[0].id, 'pomasa-studio')
-  assert.equal(dockApps[0].label, 'POMASA Studio')
+  assert.equal(dockApps[0].label, 'POMASA')
   assert.equal(typeof dockApps[0].onToggle, 'function', 'dock app must carry an onToggle')
 })
 
@@ -810,7 +810,7 @@ test('L2 client renders with real React (guards positional-children bugs)', asyn
   const api = { listMas: () => Promise.resolve({ ok: true, mas: [] }) }
 
   const listHtml = react.SSR.renderToString(react.React.createElement(ps.MasList, { api, onCreate: () => {}, onOpen: () => {}, onListChange: () => {} }))
-  assert.match(listHtml, /POMASA Studio/)
+  assert.match(listHtml, /POMASA/)
   assert.match(listHtml, /全部研究 MAS 的全局工作台/)
   // the create entry always lives in the nav head (left), never in the right pane
   assert.match(listHtml, /新建 MAS/)
