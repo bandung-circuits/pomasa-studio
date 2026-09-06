@@ -34,15 +34,13 @@ export async function ensureSession(page: Page): Promise<void> {
   }
   if (await pomasaVisible(page)) return
 
-  // Entry via the app dock: wait for the dock footer action, open the dock,
-  // click POMASA Studio, then wait for the workbench. Programmatic clicks
-  // ($eval) so no overlay interception can swallow the event.
+  // Entry via the app dock: POMASA Studio renders its icon directly in the
+  // footer grid; one programmatic click opens the workbench (no intermediate
+  // dock panel). $eval so no overlay interception can swallow the event.
   const click = (selector: string) => page.$eval(selector, (el) => el.click())
-  await page.waitForSelector('.dk-footer-action', { timeout: 60_000 }).catch(() => {})
-  if (await page.$('.dk-footer-action')) {
-    await click('.dk-footer-action')
-    await page.waitForSelector('.dk-app:has-text("POMASA Studio")', { timeout: 30_000 }).catch(() => {})
-    await page.$eval('.dk-app:has-text("POMASA Studio")', (el) => el.click()).catch(() => {})
+  await page.waitForSelector('[data-dock-app="pomasa-studio"]', { timeout: 60_000 }).catch(() => {})
+  if (await page.$('[data-dock-app="pomasa-studio"]')) {
+    await click('[data-dock-app="pomasa-studio"]')
     if (await waitForWorkbench(page)) return
   }
 
