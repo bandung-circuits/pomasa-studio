@@ -205,7 +205,7 @@ export function apply(ctx) {
     // dsh-app-dock:ready 事件（once）。
     const registerWithDock = () => {
       if (typeof window === 'undefined' || !window.__dshAppDock__) return
-      window.__dshAppDock__.register({ id: 'pomasa-studio', label: 'POMASA Studio', icon: '◫', order: 40, onToggle: () => panel.toggle() })
+      window.__dshAppDock__.register({ id: 'pomasa-studio', label: 'POMASA', icon: '◫', order: 40, onToggle: () => panel.toggle() })
     }
     if (typeof window !== 'undefined' && !window.__dshAppDock__) {
       window.addEventListener('dsh-app-dock:ready', registerWithDock, { once: true })
