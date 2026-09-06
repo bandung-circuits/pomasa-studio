@@ -8,7 +8,7 @@ description: >
   and Verifiable Data Lineage.
 license: Apache-2.0
 metadata:
-  author: eXtremeProgramming-cn
+  author: bandung-circuits
   version: "0.10"
 ---
 

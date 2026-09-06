@@ -49,11 +49,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/eXtremeProgramming-cn/pomasa-studio.git"
+    "url": "git+https://github.com/bandung-circuits/pomasa-studio.git"
   },
-  "homepage": "https://github.com/eXtremeProgramming-cn/pomasa-studio",
+  "homepage": "https://github.com/bandung-circuits/pomasa-studio",
   "bugs": {
-    "url": "https://github.com/eXtremeProgramming-cn/pomasa-studio/issues"
+    "url": "https://github.com/bandung-circuits/pomasa-studio/issues"
   },
   "dependencies": {
     "docx": "^9.7.1",
