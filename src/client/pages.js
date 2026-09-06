@@ -77,7 +77,7 @@ function MasList(props) {
         h('span', { className: 'name' }, t('studio.title')),
         // the create entry lives here, on the left — the right pane never
         // carries its own "新建 MAS" button
-        h(psBtn, { primary: true, style: { padding: '5px 12px', fontSize: 13.5 }, onClick: props.onCreate }, t('new.mas')),
+        h(psBtn, { primary: true, style: { padding: '5px 12px', fontSize: 13.5 }, onClick: props.onCreate }, t('new.btn')),
       ),
       h('div', { className: 'ps-sub' }, t('studio.tagline')),
     ),
