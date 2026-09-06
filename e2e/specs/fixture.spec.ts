@@ -21,17 +21,17 @@ test('fixture MAS: real generator shape lists and opens in the workbench', async
 test('language switch: the dock toggle flips the Studio chrome between zh and en', async ({ page }) => {
   await openPomasaTab(page)
   // default language is zh
-  await expect(page.getByRole('button', { name: '新建 MAS' })).toBeVisible({ timeout: 15000 })
+  await expect(page.getByRole('button', { name: '新建', exact: true })).toBeVisible({ timeout: 15000 })
   // 语言 switch 在坞上（Bandung 全局），经坞切换联动 Studio chrome
   const click = (sel) => page.$eval(sel, (el) => el.click())
   await page.waitForSelector('.dk-lang-opt[data-bandung-lang="en"]', { timeout: 15000 })
   await click('.dk-lang-opt[data-bandung-lang="en"]')
-  await expect(page.getByRole('button', { name: 'New MAS' })).toBeVisible({ timeout: 5000 })
-  await expect(page.getByRole('button', { name: '新建 MAS' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'New', exact: true })).toBeVisible({ timeout: 5000 })
+  await expect(page.getByRole('button', { name: '新建', exact: true })).toHaveCount(0)
   // MAS data keeps its own language — the fixture system name is content, not chrome
   await expect(page.getByText('《黑神话·钟馗》市场调研', { exact: true }).first()).toBeVisible()
   // and back to zh
   await page.waitForSelector('.dk-lang-opt[data-bandung-lang="zh"]', { timeout: 5000 })
   await click('.dk-lang-opt[data-bandung-lang="zh"]')
-  await expect(page.getByRole('button', { name: '新建 MAS' })).toBeVisible({ timeout: 5000 })
+  await expect(page.getByRole('button', { name: '新建', exact: true })).toBeVisible({ timeout: 5000 })
 })

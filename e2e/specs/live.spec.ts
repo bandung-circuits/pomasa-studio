@@ -14,7 +14,7 @@ test.describe('generation flow (mocked model)', () => {
     page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text().slice(0, 200)) })
 
     await openPomasaTab(page)
-    await page.getByText('新建 MAS', { exact: true }).first().click()
+    await page.getByText('新建', { exact: true }).first().click()
     await page.getByPlaceholder('e.g. llm_south').fill('e2e_mock_gen')
     await page.locator('textarea[placeholder="必填"]').fill('端到端测试（mock 模型）：开源大模型的数字主权影响')
     await page.getByText('生成 MAS', { exact: true }).first().click()
