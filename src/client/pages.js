@@ -114,7 +114,6 @@ function MasList(props) {
           ),
         ),
     ),
-    h(LangSwitch, null),
   )
 }
 

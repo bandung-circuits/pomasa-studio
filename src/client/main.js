@@ -206,6 +206,12 @@ export function apply(ctx) {
     const registerWithDock = () => {
       if (typeof window === 'undefined' || !window.__dshAppDock__) return
       window.__dshAppDock__.register({ id: 'pomasa-studio', label: 'POMASA', icon: '◫', order: 40, onToggle: () => panel.toggle() })
+      if (window.__dshAppDock__.lang) {
+        window.__dshAppDock__.lang.subscribe(() => {
+          const v = window.__dshAppDock__.lang.get()
+          if (langStore.val !== v) { langStore.val = v; langStore.emit() }
+        })
+      }
     }
     if (typeof window !== 'undefined' && !window.__dshAppDock__) {
       window.addEventListener('dsh-app-dock:ready', registerWithDock, { once: true })

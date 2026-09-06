@@ -271,13 +271,22 @@ const I18N_EN = {
   'err.ws.start': 'Failed to start session: {{m}}',
 }
 
-let savedLang = null
-try { savedLang = typeof localStorage !== 'undefined' ? localStorage.getItem('pomasa-lang') : null } catch { /* storage may be unavailable in sandboxes */ }
+function readBandungLang() {
+  try {
+    if (typeof window !== 'undefined' && window.__dshAppDock__ && window.__dshAppDock__.lang) return window.__dshAppDock__.lang.get()
+    return typeof localStorage !== 'undefined' ? (localStorage.getItem('bandung-lang') === 'en' ? 'en' : 'zh') : 'zh'
+  } catch { return 'zh' }
+}
 const langStore = {
-  val: savedLang === 'en' ? 'en' : 'zh',
+  val: readBandungLang(),
   subs: new Set(),
   emit() { for (const f of this.subs) f() },
-  set(v) { this.val = v === 'en' ? 'en' : 'zh'; try { localStorage.setItem('pomasa-lang', this.val) } catch { /* ignore */ } this.emit() },
+  set(v) {
+    this.val = v === 'en' ? 'en' : 'zh'
+    try { localStorage.setItem('bandung-lang', this.val) } catch { /* ignore */ }
+    if (typeof window !== 'undefined' && window.__dshAppDock__ && window.__dshAppDock__.lang) window.__dshAppDock__.lang.set(this.val)
+    this.emit()
+  },
   subscribe(f) { this.subs.add(f); return () => { this.subs.delete(f) } },
 }
 function useLang() {
@@ -293,18 +302,3 @@ function t(key, vars, l) {
   return s
 }
 
-// Rendered at the very bottom of the Studio left nav. Both languages are shown
-// as options; the active one is marked, clicking the other switches.
-function LangSwitch() {
-  const lang = useLang()
-  const opt = (code, name) => h('button', {
-    key: code,
-    type: 'button',
-    className: 'ps-lang-opt' + (lang === code ? ' on' : ''),
-    onClick: () => langStore.set(code),
-  }, name)
-  return h('div', { className: 'ps-nav-foot' },
-    h('span', { className: 'ps-lang-label' }, t('lang.label')),
-    h('div', { className: 'ps-lang-opts' }, opt('zh', '中文'), opt('en', 'English')),
-  )
-}
