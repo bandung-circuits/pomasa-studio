@@ -1,8 +1,9 @@
 import { test, type Page } from '@playwright/test'
 
-// The Studio workbench has a single entry: the bottom-left launcher toggles the
-// shell.overlay panel (bounded to the main content area, DSH sidebar stays
-// visible). The in-session conversation.view tab no longer exists.
+// The Studio workbench has a single entry: the app dock (dsh-app-dock) toggles
+// the shell.overlay panel (bounded to the main content area, DSH sidebar stays
+// visible). The in-session conversation.view tab and the footer launcher no
+// longer exist.
 async function pomasaVisible(page: Page) {
   return await page.locator('.ps-workbench').first().isVisible().catch(() => false)
 }
@@ -33,15 +34,17 @@ export async function ensureSession(page: Page): Promise<void> {
   }
   if (await pomasaVisible(page)) return
 
-  // The launcher toggles the workbench panel. Click the DOM node directly so no
-  // overlay interception can swallow the event.
-  const clicked = await page.evaluate(() => {
-    const el = Array.from(document.querySelectorAll('.ps-footer-action')).find(
-      (e) => e.textContent && e.textContent.includes('POMASA Studio'))
-    if (el) { (el as HTMLElement).click(); return true }
-    return false
-  }).catch(() => false)
-  if (clicked && await waitForWorkbench(page)) return
+  // Entry via the app dock: wait for the dock footer action, open the dock,
+  // click POMASA Studio, then wait for the workbench. Programmatic clicks
+  // ($eval) so no overlay interception can swallow the event.
+  const click = (selector: string) => page.$eval(selector, (el) => el.click())
+  await page.waitForSelector('.dk-footer-action', { timeout: 60_000 }).catch(() => {})
+  if (await page.$('.dk-footer-action')) {
+    await click('.dk-footer-action')
+    await page.waitForSelector('.dk-app:has-text("POMASA Studio")', { timeout: 30_000 }).catch(() => {})
+    await page.$eval('.dk-app:has-text("POMASA Studio")', (el) => el.click()).catch(() => {})
+    if (await waitForWorkbench(page)) return
+  }
 
   console.log('ensure: FAILED to reach POMASA; body=', (await page.locator('body').innerText()).slice(0, 160).replace(/\n+/g, ' | '))
   test.skip(true, 'POMASA workbench not reachable')

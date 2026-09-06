@@ -55,9 +55,13 @@ if (process.env.POMASA_E2E_SRC_HOME === 'user') {
     filter: (p) => !p.includes('node_modules') && !p.split(path.sep).includes('profiles'),
   })
   execFileSync('dsh', ['--profile', 'web', '--help'], { env, stdio: 'ignore' })
+  // 坞先装（bundles 先于本插件，register 发生在本插件 apply 之前，才能入坞）
+  execFileSync('dsh', ['plugin', '--profile', 'web', 'add', path.join(ROOT, '..', 'dsh-app-dock')], { env, stdio: 'ignore' })
   execFileSync('dsh', ['plugin', '--profile', 'web', 'add', ROOT], { env, stdio: 'ignore' })
 } else {
   execFileSync('dsh', ['--profile', 'web', '--help'], { env, stdio: 'ignore' })
+  // 坞先装（bundles 先于本插件，register 发生在本插件 apply 之前，才能入坞）
+  execFileSync('dsh', ['plugin', '--profile', 'web', 'add', path.join(ROOT, '..', 'dsh-app-dock')], { env, stdio: 'ignore' })
   execFileSync('dsh', ['plugin', '--profile', 'web', 'add', ROOT], { env, stdio: 'ignore' })
 }
 

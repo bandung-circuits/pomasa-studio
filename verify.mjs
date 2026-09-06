@@ -711,7 +711,7 @@ test('L2 safety: generate requires topic, rejects dup ids', async () => {
   assert.match(dup.json.error, /exists/)
 })
 
-test('L2 client bundle: loads and registers conversation.view + sidebar entry', () => {
+test('L2 client bundle: loads and registers shell.overlay + dock entry', () => {
   const bundlePath = path.join(ROOT, 'lib/client.js')
   assert.ok(fs.existsSync(bundlePath), 'lib/client.js missing — run npm run build:client first')
   const src = fs.readFileSync(bundlePath, 'utf8')
@@ -726,9 +726,14 @@ test('L2 client bundle: loads and registers conversation.view + sidebar entry', 
   assert.match(src, /@media \(max-width: 820px\)/)
   assert.match(src, /\.ps-shell-panel/)
   const registrations = []
+  const dockApps = []
   const loaded = []
   const sandbox = {
     window: {
+      __dshAppDock__: {
+        register(def) { dockApps.push(def); return true },
+      },
+      addEventListener() {},
       __ModuleLoader__: {
         load(cfg) {
           loaded.push(cfg.id)
@@ -737,7 +742,7 @@ test('L2 client bundle: loads and registers conversation.view + sidebar entry', 
             if (name === 'react') return React
             throw new Error('unexpected require: ' + name)
           })
-          const expectedSlots = ['sidebar.footer.action', 'shell.overlay']
+          const expectedSlots = ['shell.overlay']
           const vc = {
             inject(slotName, factory) {
               assert.equal(slotName, expectedSlots.shift())
@@ -757,11 +762,15 @@ test('L2 client bundle: loads and registers conversation.view + sidebar entry', 
   vm.createContext(sandbox)
   vm.runInContext(src, sandbox)
   assert.deepEqual(loaded, ['pomasa-studio'])
-  assert.equal(registrations.length, 2)
+  assert.equal(registrations.length, 1)
   assert.equal(registrations[0].id, 'pomasa-studio')
-  assert.ok(registrations.some((r) => r.name === 'sidebar.footer.action'))
-  assert.ok(registrations.some((r) => r.name === 'shell.overlay'))
+  assert.equal(registrations[0].name, 'shell.overlay')
+  assert.ok(!registrations.some((r) => r.name === 'sidebar.footer.action'), 'the footer slot is owned by the dock now')
   assert.ok(!registrations.some((r) => r.name === 'conversation.view'), 'the in-session tab was removed')
+  assert.equal(dockApps.length, 1)
+  assert.equal(dockApps[0].id, 'pomasa-studio')
+  assert.equal(dockApps[0].label, 'POMASA Studio')
+  assert.equal(typeof dockApps[0].onToggle, 'function', 'dock app must carry an onToggle')
 })
 
 async function findPnpmReact() {

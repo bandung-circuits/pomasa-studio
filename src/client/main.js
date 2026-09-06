@@ -1,7 +1,6 @@
 // Client entry — bundled to lib/client.js by scripts/bundle-client.mjs.
-// Entries: conversation.view (a session tab beside Chat / Trajectory) plus a
-// sidebar.footer.action that opens the Studio as a full-screen overlay, so the
-// workbench is reachable without opening a session.
+// Entry: the workbench panel in shell.overlay, opened via the app dock
+// (dsh-app-dock) — pomasa-studio no longer occupies a sidebar.footer.action slot.
 export const inject = ['slots', 'workspaces', 'sessions']
 
 // Best-effort diagnostic: report which workspace/session services THIS ctx
@@ -107,7 +106,7 @@ export function apply(ctx) {
     document.addEventListener('mousedown', (e) => {
       if (!panel.open) return
       const t = e.target
-      if (t && typeof t.closest === 'function' && (t.closest('.ps-shell-panel') || t.closest('.ps-footer-action'))) return
+      if (t && typeof t.closest === 'function' && t.closest('.ps-shell-panel')) return
       panel.close()
     })
   }
@@ -153,17 +152,6 @@ export function apply(ctx) {
         h(StudioRoot, { sessionId: '', key: 'shell' }),
       ),
     )
-  }
-
-  function PomasaFooterAction() {
-    const open = usePanelOpen()
-    useLang() // re-render when the language changes while the panel is closed
-    return h('div', {
-      className: 'ps-footer-action' + (open ? ' on' : ''),
-      onClick: () => panel.toggle(),
-      title: open ? t('launcher.close') : t('launcher.open'),
-      'aria-expanded': open ? 'true' : 'false',
-    }, h('span', { className: 'ps-footer-glyph' }, '◫'), t('studio.title'))
   }
 
   // Giving every pomasa session its "POMASA" workspace folder is done through
@@ -212,13 +200,18 @@ export function apply(ctx) {
   }
 
   function applySlots(slots, h2) {
-    // Single entry: the bottom-left launcher toggles the shell.overlay
-    // workbench panel. The in-session conversation.view tab was removed — the
-    // panel is reachable on any screen state, so the tab added nothing.
-    slots.inject('sidebar.footer.action', () => slots.register(
-      { name: 'sidebar.footer.action', id: 'pomasa-studio', order: 20, label: t('studio.title') },
-      () => h2(PomasaFooterAction, null),
-    ))
+    // 入坞：dsh-app-dock 是 pomasa-studio 的依赖，入口交给坞（含 ready 延迟注册），
+    // 自占 footer 槽移除。容忍加载顺序：注册表已就位即注册；否则等
+    // dsh-app-dock:ready 事件（once）。
+    const registerWithDock = () => {
+      if (typeof window === 'undefined' || !window.__dshAppDock__) return
+      window.__dshAppDock__.register({ id: 'pomasa-studio', label: 'POMASA Studio', icon: '◫', order: 40, onToggle: () => panel.toggle() })
+    }
+    if (typeof window !== 'undefined' && !window.__dshAppDock__) {
+      window.addEventListener('dsh-app-dock:ready', registerWithDock, { once: true })
+    }
+    registerWithDock()
+
     slots.inject('shell.overlay', () => slots.register(
       { name: 'shell.overlay', id: 'pomasa-studio', order: 10, label: t('studio.title') },
       () => h2(WorkbenchPanel, null),
