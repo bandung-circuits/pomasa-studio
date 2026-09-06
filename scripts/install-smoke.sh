@@ -34,41 +34,23 @@ mkdir -p "$POMASA_HOME"
 
 # --- pick install source ---------------------------------------------------
 SPEC="${POMASA_INSTALL_SPEC:-}"
-if [ -n "$SPEC" ]; then
-  PKG="$SPEC"
-  MODE="registry:${SPEC}"
-else
-  DEST="$BASE/pkg"
-  mkdir -p "$DEST"
-  (cd "$ROOT" && npm pack --pack-destination "$DEST" >/dev/null)
-  PKG_FILE="$(ls "$DEST"/*.tgz | head -1)"
-  [ -n "$PKG_FILE" ] || { echo "FAIL: no tarball produced" >&2; exit 1; }
-  # Package integrity in one shot: every path the host needs at boot must be
-  # inside the tarball. This is the box the Windows loader ENOENT'd on.
-  FAIL=0
-  for need in \
-    package/skill/SKILL.md \
-    package/skill/pattern-catalog/README.md \
-    package/lib/client.js \
-    package/lib/index.js \
-    package/cordis.patch.yml \
-    package/pomasa-home/AGENTS.md \
-    package/pomasa-home/.dsh/mcp.servers.yml \
-    package/scripts/bundle-client.mjs; do
-    if ! tar tzf "$PKG_FILE" | grep -qFx "$need"; then
-      echo "FAIL: tarball missing $need" >&2
-      FAIL=1
-    fi
-  done
-  [ "$FAIL" = "0" ] || { echo "tarball: $(basename "$PKG_FILE")" >&2; exit 1; }
-  PKG="$PKG_FILE"
-  MODE="local-tarball:$(basename "$PKG_FILE")"
-fi
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+DOCK_ROOT="$(cd "$ROOT_DIR" && pwd)/../dsh-app-dock"
 
 # --- the README flow -------------------------------------------------------
 dsh --profile web --help >/dev/null 2>&1
-dsh plugin --profile web add "$PKG" >/dev/null 2>&1 \
-  || { echo "FAIL: dsh plugin add $PKG" >&2; exit 1; }
+if [ -n "$SPEC" ]; then
+  MODE="registry:${SPEC}"
+  dsh plugin --profile web add "$SPEC" >/dev/null 2>&1 \
+    || { echo "FAIL: dsh plugin add $SPEC" >&2; exit 1; }
+else
+  [ -d "$DOCK_ROOT" ] || { echo "FAIL: dock 仓库不存在 $DOCK_ROOT" >&2; exit 1; }
+  MODE="local-dirs(dock+pomasa)"
+  dsh plugin --profile web add "$DOCK_ROOT" >/dev/null 2>&1 \
+    || { echo "FAIL: dsh plugin add $DOCK_ROOT" >&2; exit 1; }
+  dsh plugin --profile web add "$ROOT_DIR" >/dev/null 2>&1 \
+    || { echo "FAIL: dsh plugin add $ROOT_DIR" >&2; exit 1; }
+fi
 
 # Post-install: the exact scandir target the Windows build failed on.
 PLUGIN_ROOT="$DSH_HOME/$PLUGIN_ROOT_PATTERN"
@@ -81,6 +63,8 @@ for f in lib/index.js lib/client.js cordis.patch.yml package.json; do
 done
 grep -q 'pomasa-studio' "$DSH_HOME/profiles/web/package.json" \
   || { echo "FAIL: profile manifest does not list pomasa-studio" >&2; exit 1; }
+grep -q 'dsh-app-dock' "$DSH_HOME/profiles/web/package.json" \
+  || { echo "FAIL: profile manifest does not list dsh-app-dock" >&2; exit 1; }
 
 # --- boot and assert -------------------------------------------------------
 dsh --profile web --no-open --port "$PORT" >"$BASE/dsh.log" 2>&1 &
