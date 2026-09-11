@@ -6,17 +6,19 @@ function SubagentNode(props) {
     state,
     selected,
     sessionInfo,
-    onSelect,
+    designMode,
+    onSelectNode,
+    onSelectWithChat,
     onBlueprint,
     onChat,
   } = props
   const st = state || { status: 'waiting', artifactCount: 0 }
   const alive = sessionInfo && sessionInfo.alive
   const registered = sessionInfo && sessionInfo.registered
-  const hasChat = sessionInfo && sessionInfo.sessionId
+  const hasChat = designMode || (sessionInfo && sessionInfo.sessionId)
   return h('div', {
     className: 'ps-node stage' + (selected ? ' on' : '') + (alive ? ' alive' : ''),
-    onClick: () => onSelect && onSelect(node),
+    onClick: () => onSelectWithChat && onSelectWithChat(node),
   },
     h('div', { className: 'ps-node-head' },
       h('div', { className: 'ps-node-head-main' },
@@ -36,7 +38,7 @@ function SubagentNode(props) {
       h(psIconBtn, {
         icon: 'output',
         title: t('node.artifacts'),
-        onClick: () => onSelect && onSelect(node),
+        onClick: () => onSelectNode && onSelectNode(node),
       }),
       h(psIconBtn, {
         icon: 'chat',

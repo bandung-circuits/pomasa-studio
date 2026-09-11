@@ -3,9 +3,10 @@ import { mdToDocx } from './report-exporter/index.js'
 import { createMasManager } from './MAS-manager/index.js'
 import { createHostTaskManager } from './task-manager/index.js'
 import { DEFAULT_UNIT, LEGACY_TASK } from './task-manager/state.js'
+import { masDir } from './paths/index.js'
 
 export function createCatalog(deps) {
-  const { config, home, sessions, creator, runner, subMgr } = deps
+  const { config, home, sessions, creator, runner, subMgr, agentCreator } = deps
   const masMgr = createMasManager({ config, home, sessions, creator })
   const taskMgr = createHostTaskManager({ config, home, sessions, runner })
 
@@ -78,6 +79,16 @@ export function createCatalog(deps) {
       if (sub === '/run.start' && req.method === 'POST') {
         const body = await readBody(req)
         const r = await runner.startRun(body, masMgr.hasMas.bind(masMgr))
+        if (!r.ok) return jsonResponse(res, 400, r)
+        return jsonResponse(res, 200, r)
+      }
+
+      if (sub === '/design.start' && req.method === 'POST') {
+        const body = await readBody(req)
+        const masId = String(body.masId || '')
+        if (!masMgr.hasMas(masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
+        const masRootPath = masDir(home(), masId)
+        const r = await agentCreator.ensureDesignAgent({ masId, masRoot: masRootPath })
         if (!r.ok) return jsonResponse(res, 400, r)
         return jsonResponse(res, 200, r)
       }

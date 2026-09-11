@@ -11,7 +11,6 @@ const ACTION_CHILDREN = {
   'task.rename': ['task.refresh'],
   'task.open': ['artifact.clear'],
   'task.change': ['artifact.clear'],
-  'node.select': ['agent.chat.select'],
 }
 
 const actionBus = {

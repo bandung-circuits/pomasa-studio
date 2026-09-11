@@ -27,7 +27,7 @@ Layout-only hooks: `ps-part-title-btn`, `ps-tree-unit-add` (padding/size in pare
 
 text UI:
 - dark: black background, white text
-- light: gray background, dark text
+- light: gray background, dark text, `border-l2` outline; hover `border-l3`
 
 icon UI:
 - dark: circle black, white icon

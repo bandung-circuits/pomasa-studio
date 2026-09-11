@@ -1,7 +1,7 @@
 // Orchestrator shell — container for subagent sequence (orchestrator is not a subagent node).
 
 function OrchestratorShell(props) {
-  const { row, tm, loc, aliveMap, onSelect, onBlueprint, onChat } = props
+  const { row, tm, loc, aliveMap, onSelectNode, onSelectWithChat, onBlueprint, onChat, designMode } = props
   const orch = row.orchestrator
   const stages = row.stages || []
   if (!orch) return null
@@ -10,7 +10,7 @@ function OrchestratorShell(props) {
   const orchSession = aliveMap && aliveMap[orch.key]
   const orchAlive = orchSession && orchSession.alive
   const orchRegistered = orchSession && orchSession.registered
-  const orchHasChat = orchSession && orchSession.sessionId
+  const orchHasChat = designMode || (orchSession && orchSession.sessionId)
 
   return h('div', {
     className: 'ps-orch-shell' + (selectedKey === orch.key ? ' on' : '') + (orchAlive ? ' alive' : ''),
@@ -18,7 +18,7 @@ function OrchestratorShell(props) {
     h('div', { className: 'ps-orch-head' },
       h('div', {
         className: 'ps-orch-title-row',
-        onClick: () => onSelect && onSelect(orch),
+        onClick: () => onSelectWithChat && onSelectWithChat(orch),
       },
         h('span', { className: 'ps-dot ' + (STAGE_STATUS_BADGE[orchState.status] || 'idle') }),
         h('span', { className: 'ps-orch-title' }, str(orch.title)),
@@ -53,7 +53,9 @@ function OrchestratorShell(props) {
                 state,
                 selected: selectedKey === node.key,
                 sessionInfo,
-                onSelect,
+                designMode,
+                onSelectNode,
+                onSelectWithChat,
                 onBlueprint,
                 onChat,
               }),
@@ -64,13 +66,34 @@ function OrchestratorShell(props) {
   )
 }
 
+function chatSelectPayload(loc, node) {
+  return {
+    masId: loc.masId,
+    unitKey: loc.unitKey,
+    taskKey: loc.taskKey,
+    agentKey: node.key,
+    agentPath: node.agent,
+    title: str(node.title),
+  }
+}
+
 function WorkflowCanvas(props) {
   const { descriptor, tm, loc, aliveMap } = props
+  const designMode = useStudioMode() === 'design'
   const rows = workflowRows(descriptor)
   if (!rows.length) {
     return h('div', { className: 'ps-work-center-empty' }, h(psEmpty, { title: t('stage.none'), hint: t('stage.none.hint') }))
   }
-  const onSelect = (node) => taskManager.selectAgent(node.key)
+  const emitChatSelect = (node) => {
+    actionBus.emit('agent.chat.select', chatSelectPayload(loc, node))
+  }
+  const onSelectNode = (node) => {
+    taskManager.selectAgent(node.key)
+  }
+  const onSelectWithChat = (node) => {
+    taskManager.selectAgent(node.key)
+    emitChatSelect(node)
+  }
   const onBlueprint = (node) => {
     if (!node.agent) return
     actionBus.emit('file.open', {
@@ -82,8 +105,7 @@ function WorkflowCanvas(props) {
     })
   }
   const onChat = (node) => {
-    taskManager.selectAgent(node.key)
-    actionBus.emit('agent.chat.select', { masId: loc.masId, unitKey: loc.unitKey, taskKey: loc.taskKey, agentKey: node.key })
+    emitChatSelect(node)
   }
   return h('div', { className: 'ps-canvas' },
     rows.map((row) => h(OrchestratorShell, {
@@ -92,7 +114,9 @@ function WorkflowCanvas(props) {
       tm,
       loc,
       aliveMap,
-      onSelect,
+      designMode,
+      onSelectNode,
+      onSelectWithChat,
       onBlueprint,
       onChat,
     })),

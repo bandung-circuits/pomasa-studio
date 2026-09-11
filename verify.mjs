@@ -761,6 +761,35 @@ test('L2 lifecycle: run.start prepares the prompt; /record tracks the run sessio
   assert.equal(list2.json.mas.find((m) => m.id === 'demo').status, 'idle')
 })
 
+test('L2 design.start: cwd is mas root', async () => {
+  const home = tempHome()
+  const { ctx, routes, agents, presetCalls } = mockCtx()
+  apply(ctx, { pomasaHome: home })
+  writeMas(home, 'demo', SINGLE_DESCRIPTOR)
+  fs.mkdirSync(path.join(home, 'demo', 'agents'), { recursive: true })
+  fs.writeFileSync(path.join(home, 'demo', 'agents', '00.orchestrator.md'), '# orch')
+  fs.writeFileSync(path.join(home, 'demo', 'agents', '01.overview.md'), '# o')
+  fs.writeFileSync(path.join(home, 'demo', 'agents', '02.research.md'), '# r')
+
+  const bad = await call(routes, '/pomasa/design.start', 'POST', { masId: 'nosuch' })
+  assert.equal(bad.code, 404)
+
+  const started = await call(routes, '/pomasa/design.start', 'POST', { masId: 'demo' })
+  assert.equal(started.json.ok, true)
+  assert.match(started.json.sessionId, /^pomasa\.demo\.design$/)
+  const masRoot = path.join(home, 'demo')
+  assert.equal(started.json.masRoot, masRoot)
+  const agent = agents.get(started.json.sessionId)
+  assert.ok(agent, 'design agent stays live')
+  assert.equal(agent.meta.cwd, masRoot, 'design agent cwd is mas root')
+  assert.equal(presetCalls.mount.length, 1, 'design agent preset mounted once')
+
+  const reused = await call(routes, '/pomasa/design.start', 'POST', { masId: 'demo' })
+  assert.equal(reused.json.ok, true)
+  assert.equal(reused.json.reused, true)
+  assert.equal(agents.size, 1, 'design.start reuses live design session')
+})
+
 test('L2 phase2: /record agentKey + subagent.list/info', async () => {
   const home = tempHome()
   const { ctx, routes, agents } = mockCtx()

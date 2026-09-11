@@ -124,12 +124,13 @@ export const CSS = `
 .ps-ui-btn--text.ps-ui-btn--light.ghost,
 .ps-btn.ghost:not(.ps-ui-btn--icon) {
   background: var(--dsw-alias-bg-layer-2);
-  border: 0;
+  border: 1px solid var(--dsw-alias-border-l2);
   color: var(--dsw-alias-label-secondary);
 }
 .ps-ui-btn--text.ps-ui-btn--light.ghost:not(:disabled):hover,
 .ps-btn.ghost:not(.ps-ui-btn--icon):not(:disabled):hover {
   background: color-mix(in srgb, var(--dsw-alias-label-primary) 12%, var(--dsw-alias-bg-layer-2));
+  border-color: var(--dsw-alias-border-l3);
   color: var(--dsw-alias-label-primary);
 }
 .ps-btn-danger { color: var(--dsw-alias-state-error-primary) !important; }
@@ -147,11 +148,12 @@ export const CSS = `
 .ps-ui-btn--text.ps-ui-btn--dark:not(:disabled):hover { background: var(--dsw-alias-button-primary-hover); color: var(--dsw-alias-label-primary-foreground); }
 .ps-ui-btn--text.ps-ui-btn--light {
   background: var(--dsw-alias-bg-layer-2);
-  border: 0;
+  border: 1px solid var(--dsw-alias-border-l2);
   color: var(--dsw-alias-label-secondary);
 }
 .ps-ui-btn--text.ps-ui-btn--light:not(:disabled):hover {
   background: color-mix(in srgb, var(--dsw-alias-label-primary) 12%, var(--dsw-alias-bg-layer-2));
+  border-color: var(--dsw-alias-border-l3);
   color: var(--dsw-alias-label-primary);
 }
 .ps-ui-btn--icon.ps-ui-btn--dark {
@@ -212,6 +214,11 @@ export const CSS = `
 .ps-part-desc-tip--fixed { position: fixed; transform: translateX(-50%); z-index: var(--ps-z, 1); }
 .ps-part-desc-line { display: block; }
 .ps-part-desc-line + .ps-part-desc-line { margin-top: 4px; }
+.ps-part-desc-anchor { display: inline-flex; width: 100%; }
+.ps-part-desc-anchor > .ps-btn { width: 100%; pointer-events: none; }
+.ps-studio-mode { padding: 8px 12px 10px; display: flex; flex-direction: column; }
+.ps-mode-segment { display: flex; gap: 6px; }
+.ps-mode-segment .ps-btn { flex: 1 1 0; min-width: 0; }
 
 /* ---------- footer startup (DSH footArea / sidebar.footer.action) ---------- */
 /* Mirror native Settings trigger (.VOzbGW_trigger) so icon+label share the same box. */
@@ -684,7 +691,7 @@ body.ps-native-conversation-docked.ps-native-composer-locked [data-composer-seat
 .ps-boot-name { font-size: 15px; font-weight: 650; letter-spacing: -0.01em; }
 .ps-boot-body { flex: 1; min-height: 0; overflow: hidden; padding: 16px 20px 24px; display: flex; flex-direction: column; }
 .ps-boot-body > .ps-scroll-frame { flex: 1; min-height: 0; }
-.ps-boot-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); min-width: 0; }
+.ps-boot-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); min-width: 0; margin: 12px; }
 .ps-boot-card.on { border-color: var(--dsw-alias-brand-primary); box-shadow: inset 0 0 0 1px var(--dsw-alias-brand-primary); }
 
 /* work shell: middle + optional status bar */

@@ -6,8 +6,9 @@ import { runPrompt } from '../MAS-creator/prompt.js'
 import { defaultModel, promptMessage } from '../http.js'
 import { warmPrompt } from '../subagent-manager/manager.js'
 import { DEFAULT_UNIT, LEGACY_TASK } from '../task-manager/state.js'
-import { agentSessionId } from './ids.js'
+import { agentSessionId, designSessionId } from './ids.js'
 import { standbyAssistantText, standbySeed, standbyUserText } from './seed.js'
+import { designAssistantText, designUserText } from './design-prompt.js'
 
 function runScopeKey(unitKey, taskKey) {
   return `${unitKey || DEFAULT_UNIT}|${taskKey || LEGACY_TASK}`
@@ -283,6 +284,33 @@ ${lines}`
     }
   }
 
+  /**
+   * Live design agent under MAS root (not task cwd).
+   */
+  async function ensureDesignAgent({ masId, masRoot }) {
+    const descriptor = loadDescriptor(masRoot)
+    if (!descriptor) return { ok: false, error: 'mas not generated yet' }
+    const declared = listDeclaredAgents(descriptor, masRoot)
+    const { provider, model } = resolveModel(ctx)
+    const agentOptions = { provider, model }
+    const sid = designSessionId(masId)
+    const seed = standbySeed({
+      userText: designUserText(masRoot, declared),
+      assistantText: designAssistantText(),
+      provider,
+      model,
+    })
+    const root = await ensureRoot({ sessionId: sid, cwd: masRoot, seed, agentOptions })
+    if (!root.ok) return root
+    await attachToCwdWorkspace(sid, masRoot, `${masId}/design`)
+    return {
+      ok: true,
+      sessionId: sid,
+      masRoot,
+      reused: !!root.reused,
+    }
+  }
+
   return {
     ensureAgent,
     ensureRoot,
@@ -290,7 +318,9 @@ ${lines}`
     attachToCwdWorkspace,
     followup,
     ensureRunTree,
+    ensureDesignAgent,
     runPromptWithRoster,
     agentSessionId,
+    designSessionId,
   }
 }

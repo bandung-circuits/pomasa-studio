@@ -13,6 +13,7 @@ function resolveDescriptionLines(props) {
 function PartDescription(props) {
   const ctxBase = useHierarchyBase()
   const base = (props && props.hierarchyBase) != null ? props.hierarchyBase : ctxBase
+  const children = props && props.children
   const lines = resolveDescriptionLines(props)
   if (!lines.length) return null
 
@@ -53,14 +54,14 @@ function PartDescription(props) {
   return h(React.Fragment, null,
     h('span', {
       ref: anchorRef,
-      className: 'ps-part-desc',
+      className: children != null ? 'ps-part-desc-anchor' : 'ps-part-desc',
       onMouseEnter: show,
       onMouseLeave: hide,
       onFocus: show,
       onBlur: hide,
-      tabIndex: 0,
+      tabIndex: children != null ? undefined : 0,
     },
-      h(PsIcon, { name: 'info', size: 15, className: 'ps-part-desc-icon', title: undefined }),
+      children != null ? children : h(PsIcon, { name: 'info', size: 15, className: 'ps-part-desc-icon', title: undefined }),
     ),
     tipNode,
   )

@@ -12,3 +12,12 @@ export function agentSessionId(masId, unitKey, taskKey, agentKey) {
     safe(agentKey || 'agent'),
   ].join('.')
 }
+
+/** Design-mode session id — cwd = MAS root, not task dir. */
+export function designSessionId(masId) {
+  const safe = (s) => String(s || '')
+    .replace(/[^A-Za-z0-9._-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '')
+  return `pomasa.${safe(masId)}.design`
+}

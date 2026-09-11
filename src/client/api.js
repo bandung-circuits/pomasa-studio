@@ -61,5 +61,6 @@ function createApi() {
       agentKey: agentKey || 'orchestrator',
     })),
     deleteMas: (masId, permanent = false) => request('/pomasa/mas.delete', { method: 'POST', body: JSON.stringify({ masId, permanent: !!permanent }) }),
+    designStart: (masId) => request('/pomasa/design.start', { method: 'POST', body: JSON.stringify({ masId }) }),
   }
 }
