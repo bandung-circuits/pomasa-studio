@@ -16,11 +16,11 @@ import vm from 'node:vm'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url))
-const { loadDescriptor, normalizeContract } = await import(path.join(ROOT, 'src/host/core/descriptor.js'))
-const { unitRoots, plannedUnits, unitListing, unitState, readArtifact } = await import(path.join(ROOT, 'src/host/core/state.js'))
-const { buildUserInput } = await import(path.join(ROOT, 'src/host/core/prompt.js'))
-const { ensurePomasaHome, templatePomasaHome } = await import(path.join(ROOT, 'src/host/core/pomasa-home.js'))
-const { packagedSkillDir } = await import(path.join(ROOT, 'src/host/core/paths.js'))
+const { loadDescriptor, normalizeContract } = await import(path.join(ROOT, 'src/host/data/descriptor.js'))
+const { unitRoots, plannedUnits, unitListing, unitState, readArtifact, createTaskDir, DEFAULT_UNIT, LEGACY_TASK } = await import(path.join(ROOT, 'src/host/task-manager/state.js'))
+const { buildUserInput } = await import(path.join(ROOT, 'src/host/MAS-creator/prompt.js'))
+const { ensurePomasaHome, templatePomasaHome } = await import(path.join(ROOT, 'src/runtime/bootstrap.js'))
+const { packagedSkillDir } = await import(path.join(ROOT, 'src/host/paths/index.js'))
 const { apply } = await import(path.join(ROOT, 'src/host/apply.js'))
 
 /* ---------------- mini runner ---------------- */
@@ -95,6 +95,14 @@ const SINGLE_DESCRIPTOR = {
   ],
 }
 
+function writeAgentFixtures(home, masId) {
+  const dir = path.join(home, masId, 'agents')
+  fs.mkdirSync(dir, { recursive: true })
+  fs.writeFileSync(path.join(dir, '00.orchestrator.md'), '# orch')
+  fs.writeFileSync(path.join(dir, '01.overview.md'), '# o')
+  fs.writeFileSync(path.join(dir, '02.research.md'), '# r')
+}
+
 function writeMas(home, masId, descriptor, { run, files } = {}) {
   const root = path.join(home, masId)
   fs.mkdirSync(path.join(root, 'workspace', '01.overview'), { recursive: true })
@@ -103,6 +111,15 @@ function writeMas(home, masId, descriptor, { run, files } = {}) {
   if (run) fs.writeFileSync(path.join(root, 'workspace', 'run.json'), JSON.stringify(run, null, 2))
   for (const [file, content] of Object.entries(files || {})) {
     fs.writeFileSync(path.join(root, 'workspace', file), content)
+  }
+  const regFile = path.join(home, 'registry.json')
+  let reg = { version: 1, mas: [] }
+  if (fs.existsSync(regFile)) {
+    try { reg = JSON.parse(fs.readFileSync(regFile, 'utf8')) } catch { /* keep default */ }
+  }
+  if (!reg.mas.some((m) => m.id === masId)) {
+    reg.mas.push({ id: masId, name: descriptor.name || masId, status: 'idle', createdAt: Date.now() })
+    fs.writeFileSync(regFile, JSON.stringify(reg, null, 2))
   }
 }
 
@@ -174,13 +191,15 @@ test('L1 descriptor: agent paths normalize (bare md, prefixed, prose -> null)', 
   assert.equal(d.stages[3].agent, null) // non-doc path is not a blueprint file
 })
 
-test('L1 units: single mode -> workspace root', () => {
+test('L1 units: single mode -> legacy task under default', () => {
   const home = tempHome()
-  writeMas(home, 'demo', SINGLE_DESCRIPTOR)
+  writeMas(home, 'demo', SINGLE_DESCRIPTOR, { run: { status: 'completed', stages: [] } })
   const d = loadDescriptor(path.join(home, 'demo'))
-  const units = unitRoots({ pomasaHome: home }, d, 'demo')
-  assert.equal(units.length, 1)
-  assert.equal(units[0].key, null)
+  const listing = unitListing({ pomasaHome: home }, d, 'demo')
+  const def = listing.find((u) => u.key === DEFAULT_UNIT)
+  assert.ok(def, 'default unit exists')
+  assert.ok((def.tasks || []).some((t) => t.id === LEGACY_TASK), 'legacy task from workspace/run.json')
+  assert.ok(!listing.some((u) => u.key.startsWith('01.') || u.key === 'overview'), 'stage dirs are not units')
 })
 
 test('L1 units: multi mode + declared/enumerated', () => {
@@ -205,10 +224,16 @@ test('L1 units: multi mode + declared/enumerated', () => {
   const d = loadDescriptor(path.join(home, 'idx'))
   const listing = unitListing({ pomasaHome: home }, d, 'idx')
   const keys = listing.map((u) => u.key)
-  assert.deepEqual(keys, ['brasil', 'chile', 'kenya', 'india'])
+  assert.ok(keys.includes('brasil'))
+  assert.ok(keys.includes('chile'))
+  assert.ok(keys.includes('kenya'))
+  assert.ok(keys.includes('india'))
+  assert.ok(keys.includes(DEFAULT_UNIT))
+  assert.ok(!keys.some((k) => String(k).startsWith('01.')), 'stage output dirs are not grouping units')
   const brasil = listing.find((u) => u.key === 'brasil')
-  assert.equal(brasil.run, true) // has run.json
+  assert.equal(brasil.run, true) // legacy run.json under workspace/brasil
   assert.equal(brasil.planned, true)
+  assert.equal(brasil.kind, 'country')
   const kenya = listing.find((u) => u.key === 'kenya')
   assert.equal(kenya.run, false)
   assert.equal(kenya.planned, true)
@@ -271,7 +296,7 @@ test('L1 state: aggregates run.json timeline and index instances', () => {
   const home = tempHome()
   writeMas(home, 'demo', SINGLE_DESCRIPTOR, { run: SINGLE_RUN, files: SINGLE_FILES })
   const d = loadDescriptor(path.join(home, 'demo'))
-  const st = unitState({ pomasaHome: home }, d, 'demo', null)
+  const st = unitState({ pomasaHome: home }, d, 'demo', DEFAULT_UNIT, LEGACY_TASK)
   assert.equal(st.found, true)
   assert.equal(st.run.status, 'running')
   const ov = st.stages[0]
@@ -284,7 +309,7 @@ test('L1 state: aggregates run.json timeline and index instances', () => {
   // waiting stage not in run.json and without index
   writeMas(home, 'demo', { ...SINGLE_DESCRIPTOR, stages: SINGLE_DESCRIPTOR.stages.slice(0, 1) })
   const d2 = loadDescriptor(path.join(home, 'demo'))
-  const st2 = unitState({ pomasaHome: home }, d2, 'demo', null)
+  const st2 = unitState({ pomasaHome: home }, d2, 'demo', DEFAULT_UNIT, LEGACY_TASK)
   assert.equal(st2.stages[0].status, 'completed')
   assert.equal(st2.run.status, 'running')
 })
@@ -292,17 +317,30 @@ test('L1 state: aggregates run.json timeline and index instances', () => {
 test('L1 artifact.read: honors unit-root guard', () => {
   const home = tempHome()
   writeMas(home, 'demo', SINGLE_DESCRIPTOR, { run: SINGLE_RUN, files: SINGLE_FILES })
-  const a = readArtifact({ pomasaHome: home }, 'demo', null, '01.overview/overview.md')
+  const a = readArtifact({ pomasaHome: home }, 'demo', DEFAULT_UNIT, LEGACY_TASK, '01.overview/overview.md')
   assert.equal(a.format, 'markdown')
   assert.match(a.content, /# Overview/)
-  // guard scope = unit root: intra-root traversal resolves, escape is rejected
-  const intra = readArtifact({ pomasaHome: home }, 'demo', null, '01.overview/../02.research/a.md')
+  const intra = readArtifact({ pomasaHome: home }, 'demo', DEFAULT_UNIT, LEGACY_TASK, '01.overview/../02.research/a.md')
   assert.match(intra.content, /# A$/)
-  assert.throws(() => readArtifact({ pomasaHome: home }, 'demo', null, '../../../etc/passwd'), /escapes/)
+  assert.throws(() => readArtifact({ pomasaHome: home }, 'demo', DEFAULT_UNIT, LEGACY_TASK, '../../../etc/passwd'), /escapes/)
+})
+
+test('L1 graph: derive orchestrator row + stage nodes from descriptor', async () => {
+  const { deriveWorkflowGraph, ORCHESTRATOR_KEY } = await import(path.join(ROOT, 'src/host/data/graph.js'))
+  const graph = deriveWorkflowGraph(SINGLE_DESCRIPTOR, null)
+  assert.equal(graph.rows.length, 1)
+  const row = graph.rows[0]
+  assert.equal(row.orchestrator.key, ORCHESTRATOR_KEY)
+  assert.equal(row.stages.length, 2)
+  assert.equal(row.stages[0].key, 'overview')
+  assert.equal(row.stages[1].key, 'research')
+  assert.equal(row.edges.length, 1)
+  assert.equal(row.edges[0].from, 'overview')
+  assert.equal(row.edges[0].to, 'research')
 })
 
 test('L1 export: markdown to docx via pure js (CJK)', async () => {
-  const { mdToDocx, mdToPdf } = await import(path.join(ROOT, 'src/host/core/export.js'))
+  const { mdToDocx, mdToPdf } = await import(path.join(ROOT, 'src/host/report-exporter/export.js'))
   const md = '# 标题\n\n正文含**加粗**、中文、脚注[^1] 和表格。\n\n[^1]: 来源说明。\n\n| A | B |\n|---|---|\n| 1 | 中 |'
   const docx = await mdToDocx(md)
   assert.equal(Buffer.from(docx.subarray(0, 2)).toString(), 'PK', 'docx is a zip container')
@@ -312,7 +350,7 @@ test('L1 export: markdown to docx via pure js (CJK)', async () => {
 })
 
 test('L1 mcp-servers: seeded yml parses into mcp-client configs', async () => {
-  const { readMcpServerConfigs, __internals } = await import(path.join(ROOT, 'src/host/core/mcp-servers.js'))
+  const { readMcpServerConfigs, __internals } = await import(path.join(ROOT, 'src/runtime/mcp-servers.js'))
   const file = path.join(tempHome(), 'mcp.servers.yml')
   fs.writeFileSync(file, `servers:
   serper-search:
@@ -401,21 +439,78 @@ function mockCtx() {
     },
   }
   const agentsMap = new Map()
+  const persistenceStore = new Map()
+  const presetCalls = { mount: [], composeFrom: [] }
+  const disposeCalls = []
+  const agentPresets = {
+    resolve: async (id) => ({ id: id || 'standard' }),
+    mount: async (agentCtx, id) => { presetCalls.mount.push({ id, agentCtx }) },
+    composeFrom: (agentCtx, parentCtx) => { presetCalls.composeFrom.push({ agentCtx, parentCtx }) },
+  }
   const agentRegistry = {
-    create: async ({ sessionId, meta, agentOptions }) => {
+    create: async ({ sessionId, meta, seed, agentOptions, setup }) => {
+      const agentCtx = { agent: null }
+      if (typeof setup === 'function') await setup(agentCtx)
       const agent = {
         id: sessionId,
         meta,
+        seed,
         agentOptions,
-        status: 'running', // DSH agent status — the authoritative liveness signal
+        status: 'idle',
+        ctx: agentCtx,
         calls: [],
         followup(m) { this.calls.push(['followup', m]) },
-        cancel(w) { this.calls.push(['cancel', w]) },
+        cancel() { this.calls.push(['cancel']) },
       }
+      agentCtx.agent = agent
       agentsMap.set(sessionId, agent)
-      return { agent }
+      if (Array.isArray(seed) && seed.length) {
+        persistenceStore.set(sessionId, {
+          meta: { id: sessionId, cwd: meta && meta.cwd },
+          events: seed,
+        })
+      }
+      const dispose = async () => {
+        disposeCalls.push(sessionId)
+        agentsMap.delete(sessionId)
+      }
+      return { agent, dispose }
+    },
+    resume: async ({ sessionId, resumeSessionId, agentOptions, setup }) => {
+      const sid = resumeSessionId || sessionId
+      let agent = agentsMap.get(sid)
+      if (!agent) {
+        const agentCtx = { agent: null }
+        if (typeof setup === 'function') await setup(agentCtx)
+        agent = {
+          id: sid,
+          agentOptions,
+          status: 'idle',
+          ctx: agentCtx,
+          calls: [],
+          followup(m) { this.calls.push(['followup', m]) },
+          cancel() { this.calls.push(['cancel']) },
+        }
+        agentCtx.agent = agent
+        agentsMap.set(sid, agent)
+      } else if (typeof setup === 'function') {
+        if (!agent.ctx) agent.ctx = { agent }
+        await setup(agent.ctx)
+      }
+      const dispose = async () => {
+        disposeCalls.push(sid)
+        agentsMap.delete(sid)
+      }
+      return { agent, dispose }
     },
     get: (id) => agentsMap.get(id) || null,
+  }
+  const sessionPersistence = {
+    inspect: async (sessionId) => {
+      const entry = persistenceStore.get(sessionId)
+      if (!entry) throw new Error(`session not found: ${sessionId}`)
+      return entry
+    },
   }
   // Mirrors the real host registry shape: resolveByPath/create return plain
   // workspace VIEWS, while get(id) returns the registry OBJECT that carries the
@@ -448,10 +543,18 @@ function mockCtx() {
   }
   // the host exposes the registry as a DIRECT ctx property (ctx.workspaceRegistry)
   const ctx = {
-    get: (k) => ({ webServer, agentLoop, agents: agentRegistry, agentDefaultModel: { currentSelection: () => ({ provider: 'mock', model: 'mock-model' }) }, workspaceRegistry }[k]),
+    get: (k) => ({
+      webServer,
+      agentLoop,
+      agents: agentRegistry,
+      agentPresets,
+      agentDefaultModel: { currentSelection: () => ({ provider: 'mock', model: 'mock-model' }) },
+      workspaceRegistry,
+      sessionPersistence,
+    }[k]),
     workspaceRegistry,
   }
-  return { ctx, routes, agents: agentsMap, agentLoop, agentRegistry, workspaces: wsObjectByCwd }
+  return { ctx, routes, agents: agentsMap, agentLoop, agentRegistry, workspaces: wsObjectByCwd, presetCalls, disposeCalls, persistenceStore }
 }
 
 function mockRes() {
@@ -502,7 +605,7 @@ test('L1 paths: import.meta.url is never resolved through URL.pathname', () => {
   // to path.resolve() treats the leading `/` as current-drive root and doubles
   // the drive letter — the `C:\C:\...` from the boot crash. Reproduced without
   // a Windows box: on a win32 cwd the same join doubles exactly as reported.
-  const base = new URL('file:///C:/Users/Admin/AppData/Roaming/dsh-desktop/harness/profiles/web/node_modules/pomasa-studio/src/host/core/paths.js')
+  const base = new URL('file:///C:/Users/Admin/AppData/Roaming/dsh-desktop/harness/profiles/web/node_modules/pomasa-studio/src/host/paths/index.js')
   const pathname = new URL('../../../skill/', base).pathname // POSIX-style
   const buggyOnWindows = 'C:\\' + pathname.slice(1).replace(/\//g, '\\')
   assert.equal(buggyOnWindows, 'C:\\C:\\Users\\Admin\\AppData\\Roaming\\dsh-desktop\\harness\\profiles\\web\\node_modules\\pomasa-studio\\skill\\')
@@ -593,10 +696,11 @@ test('L2 lifecycle: unit state + artifact read + traversal guard', async () => {
 
 test('L2 lifecycle: run.start prepares the prompt; /record tracks the run session', async () => {
   const home = tempHome()
-  const { ctx, routes, agents } = mockCtx()
+  const { ctx, routes, agents, presetCalls, disposeCalls } = mockCtx()
   apply(ctx, { pomasaHome: home })
   writeMas(home, 'demo', SINGLE_DESCRIPTOR)
   fs.mkdirSync(path.join(home, 'demo', 'agents'), { recursive: true })
+  fs.writeFileSync(path.join(home, 'demo', 'agents', '00.orchestrator.md'), '# orch')
   fs.writeFileSync(path.join(home, 'demo', 'agents', '01.overview.md'), '# o')
   fs.writeFileSync(path.join(home, 'demo', 'agents', '02.research.md'), '# r')
 
@@ -605,43 +709,145 @@ test('L2 lifecycle: run.start prepares the prompt; /record tracks the run sessio
 
   const started = await call(routes, '/pomasa/run.start', 'POST', { masId: 'demo' })
   assert.equal(started.json.ok, true)
-  assert.equal(started.json.unitKey, null)
+  assert.equal(started.json.unitKey, DEFAULT_UNIT)
+  assert.ok(started.json.taskKey)
   assert.match(started.json.prompt, /00\.orchestrator\.md/)
-  assert.match(started.json.prompt, /workspace/)
-  // no host agent session is created
-  assert.equal([...agents.values()].filter((a) => String(a.id).startsWith('pomasa-run-')).length, 0, 'no host run agent')
-  // the client records the run session; a live agent => running
-  await call(routes, '/pomasa/record', 'POST', { masId: 'demo', kind: 'run', unit: 'single', sessionId: 'run-1' })
-  agents.set('run-1', { id: 'run-1', status: 'running' })
+  assert.match(started.json.prompt, /send_message/)
+  assert.match(started.json.prompt, /subagent-settled/)
+  assert.match(started.json.prompt, /禁止.*list_agents.*轮询|not to poll for completion/)
+  assert.ok(started.json.orchestratorSessionId)
+  assert.match(started.json.orchestratorSessionId, /^pomasa\.demo\./)
+  assert.ok(Array.isArray(started.json.agents), 'run.start returns agents[]')
+  assert.equal(started.json.agents.length, 2, 'warm list excludes orchestrator')
+  assert.ok(started.json.agents.every((a) => a.key && a.sessionId && a.title))
+  const taskRoot = path.join(home, 'demo', 'workspace', started.json.unitKey, started.json.taskKey)
+  assert.equal(agents.size, 1, 'only orchestrator stays live after prebuild')
+  assert.ok(agents.get(started.json.orchestratorSessionId), 'orchestrator remains in agent registry')
+  assert.equal(disposeCalls.length, 2, 'stage subagents parked after seed')
+  assert.ok(!disposeCalls.includes(started.json.orchestratorSessionId), 'orchestrator not disposed')
+  for (const a of started.json.agents) {
+    assert.ok(disposeCalls.includes(a.sessionId), `parked stage agent ${a.key}`)
+  }
+  const parkedInfo = await call(routes, `/pomasa/subagent.info?masId=demo&agentKey=${started.json.agents[0].key}&unit=${started.json.unitKey}&task=${started.json.taskKey}`)
+  assert.equal(parkedInfo.json.ok, true)
+  assert.equal(parkedInfo.json.registered, true, 'parked agent stays registered in task registry')
+  assert.equal(parkedInfo.json.live, false, 'parked agent is not live')
+  assert.equal(parkedInfo.json.alive, false, 'parked agent is not running')
+  const parkedLog = await call(routes, `/pomasa/agent.log?masId=demo&agentKey=${started.json.agents[0].key}&unit=${started.json.unitKey}&task=${started.json.taskKey}`)
+  assert.equal(parkedLog.json.ok, true)
+  assert.ok(Array.isArray(parkedLog.json.events) && parkedLog.json.events.length > 0, 'agent.log returns persisted seed')
+  for (const [, agent] of agents) {
+    assert.equal(agent.meta.cwd, taskRoot, 'prebuilt agent cwd is task root')
+  }
+  const orch = agents.get(started.json.orchestratorSessionId)
+  assert.ok(orch, 'orchestrator stays live')
+  assert.notEqual(orch.meta.origin, 'subagent', 'orchestrator is not a subagent')
+  assert.equal(orch.meta.delegationDepth, 0)
+  for (const a of started.json.agents) {
+    assert.ok(!agents.get(a.sessionId), `stage agent ${a.key} parked off live registry`)
+  }
+  assert.equal(presetCalls.mount.length, 1, 'orchestrator preset mounted once')
+  assert.equal(presetCalls.composeFrom.length, 2, 'stage agents composeFrom parent preset')
+  // registry records prebuilt sessions without client /record
+  const reg = JSON.parse(fs.readFileSync(path.join(home, 'registry.json'), 'utf8'))
+  const scope = `${started.json.unitKey}|${started.json.taskKey}`
+  assert.equal(reg.mas.find((m) => m.id === 'demo').lastAgentSessionIds[scope].orchestrator, started.json.orchestratorSessionId)
+  // client followup orchestrator only — simulate /record for running state tracking in old test path
+  await call(routes, '/pomasa/record', 'POST', { masId: 'demo', kind: 'run', unit: DEFAULT_UNIT, task: started.json.taskKey, sessionId: started.json.orchestratorSessionId, agentKey: 'orchestrator' })
   const list1 = await call(routes, '/pomasa/mas.list')
   assert.equal(list1.json.mas.find((m) => m.id === 'demo').status, 'running')
-  // agent dies with no run.json written => the record alone leaves it idle
-  agents.get('run-1').status = 'ended'
+  agents.get(started.json.orchestratorSessionId).status = 'ended'
   const list2 = await call(routes, '/pomasa/mas.list')
   assert.equal(list2.json.mas.find((m) => m.id === 'demo').status, 'idle')
 })
 
-test('L2 run.start: fresh wipes the unit root; continue keeps outputs and embeds the instruction', async () => {
+test('L2 phase2: /record agentKey + subagent.list/info', async () => {
+  const home = tempHome()
+  const { ctx, routes, agents } = mockCtx()
+  apply(ctx, { pomasaHome: home })
+  writeMas(home, 'demo', SINGLE_DESCRIPTOR)
+  fs.mkdirSync(path.join(home, 'demo', 'agents'), { recursive: true })
+  fs.writeFileSync(path.join(home, 'demo', 'agents', '00.orchestrator.md'), '# orch')
+  fs.writeFileSync(path.join(home, 'demo', 'agents', '01.overview.md'), '# o')
+  fs.writeFileSync(path.join(home, 'demo', 'agents', '02.research.md'), '# r')
+
+  const started = await call(routes, '/pomasa/run.start', 'POST', { masId: 'demo' })
+  assert.equal(started.json.ok, true)
+  const scope = `${started.json.unitKey}|${started.json.taskKey}`
+
+  await call(routes, '/pomasa/record', 'POST', {
+    masId: 'demo',
+    kind: 'run',
+    unit: started.json.unitKey,
+    task: started.json.taskKey,
+    sessionId: 'sid-overview',
+    agentKey: 'overview',
+  })
+  await call(routes, '/pomasa/record', 'POST', {
+    masId: 'demo',
+    kind: 'run',
+    unit: started.json.unitKey,
+    task: started.json.taskKey,
+    sessionId: 'sid-orch',
+    agentKey: 'orchestrator',
+  })
+  agents.set('sid-overview', { id: 'sid-overview', status: 'running' })
+  agents.set('sid-orch', { id: 'sid-orch', status: 'running' })
+
+  const reg = JSON.parse(fs.readFileSync(path.join(home, 'registry.json'), 'utf8'))
+  const m = reg.mas.find((x) => x.id === 'demo')
+  assert.equal(m.lastAgentSessionIds[scope].overview, 'sid-overview')
+  assert.equal(m.lastAgentSessionIds[scope].orchestrator, 'sid-orch')
+  assert.equal(m.lastRunSessionIds[scope], 'sid-orch')
+
+  const list = await call(routes, `/pomasa/subagent.list?masId=demo&unit=${started.json.unitKey}&task=${started.json.taskKey}`)
+  assert.equal(list.json.ok, true)
+  assert.ok(Array.isArray(list.json.agents))
+  assert.equal(list.json.agents.length, 3)
+  assert.equal(list.json.alive.overview.sessionId, 'sid-overview')
+  assert.equal(list.json.alive.overview.alive, true)
+  assert.equal(list.json.alive.overview.live, true)
+  assert.equal(list.json.alive.overview.registered, true)
+
+  const info = await call(routes, `/pomasa/subagent.info?masId=demo&agentKey=overview&unit=${started.json.unitKey}&task=${started.json.taskKey}`)
+  assert.equal(info.json.ok, true)
+  assert.equal(info.json.sessionId, 'sid-overview')
+  assert.equal(info.json.agent.key, 'overview')
+  assert.equal(info.json.live, true)
+  assert.equal(info.json.registered, true)
+})
+
+test('L2 run.start: fresh wipes task dir; continue keeps outputs; rerun uses new task dir', async () => {
   const home = tempHome()
   const { ctx, routes } = mockCtx()
   apply(ctx, { pomasaHome: home })
   writeMas(home, 'demo', SINGLE_DESCRIPTOR)
+  writeAgentFixtures(home, 'demo')
   const ws = path.join(home, 'demo', 'workspace')
-  fs.writeFileSync(path.join(ws, 'run.json'), JSON.stringify({ status: 'completed' }))
-  fs.writeFileSync(path.join(ws, 'old.md'), '# old output')
+  const legacyTask = path.join(ws, DEFAULT_UNIT, 'oldtask')
+  fs.mkdirSync(legacyTask, { recursive: true })
+  fs.writeFileSync(path.join(legacyTask, 'run.json'), JSON.stringify({ status: 'completed' }))
+  fs.writeFileSync(path.join(legacyTask, 'old.md'), '# old output')
 
-  const fresh = await call(routes, '/pomasa/run.start', 'POST', { masId: 'demo', mode: 'fresh' })
+  const fresh = await call(routes, '/pomasa/run.start', 'POST', { masId: 'demo', unit: DEFAULT_UNIT, task: 'oldtask', mode: 'fresh' })
   assert.equal(fresh.json.ok, true)
-  assert.equal(fs.existsSync(path.join(ws, 'old.md')), false, 'fresh wipes prior outputs')
-  assert.equal(fs.existsSync(path.join(ws, 'run.json')), false, 'fresh removes the run record')
-  assert.match(fresh.json.prompt, /从干净单元根开始/, 'fresh prompt states a clean slate')
+  assert.equal(fs.existsSync(path.join(legacyTask, 'old.md')), false, 'fresh wipes task outputs')
+  assert.equal(fs.existsSync(path.join(legacyTask, 'run.json')), false, 'fresh removes task run record')
 
-  fs.writeFileSync(path.join(ws, 'old.md'), '# again')
-  const cont = await call(routes, '/pomasa/run.start', 'POST', { masId: 'demo', mode: 'continue', instruction: '把第 3 章按国别分节' })
+  const contTask = createTaskDir({ pomasaHome: home }, 'demo', DEFAULT_UNIT).taskId
+  fs.writeFileSync(path.join(ws, DEFAULT_UNIT, contTask, 'old.md'), '# again')
+  const cont = await call(routes, '/pomasa/run.start', 'POST', { masId: 'demo', unit: DEFAULT_UNIT, task: contTask, mode: 'continue', instruction: '把第 3 章按国别分节' })
   assert.equal(cont.json.ok, true)
-  assert.equal(fs.existsSync(path.join(ws, 'old.md')), true, 'continue keeps prior outputs')
+  assert.equal(fs.existsSync(path.join(ws, DEFAULT_UNIT, contTask, 'old.md')), true, 'continue keeps prior outputs')
   assert.match(cont.json.prompt, /基于既有成果继续/, 'continue prompt states continuation')
   assert.match(cont.json.prompt, /把第 3 章按国别分节/, 'researcher instruction is embedded')
+
+  const first = createTaskDir({ pomasaHome: home }, 'demo', DEFAULT_UNIT, 'keep-me')
+  fs.writeFileSync(path.join(first.root, 'run.json'), JSON.stringify({ status: 'completed' }))
+  const second = await call(routes, '/pomasa/task.create', 'POST', { masId: 'demo', unit: DEFAULT_UNIT })
+  assert.equal(second.json.ok, true)
+  assert.notEqual(second.json.taskId, 'keep-me')
+  assert.ok(fs.existsSync(path.join(first.root, 'run.json')), 'prior task run.json remains when creating a new task')
 })
 
 test('L2 workspaces: the POMASA workspace is provisioned; /record stores run sessions', async () => {
@@ -654,11 +860,12 @@ test('L2 workspaces: the POMASA workspace is provisioned; /record stores run ses
   assert.equal(ws.title, 'POMASA')
   assert.equal(ws.cwd, home)
   fs.mkdirSync(path.join(home, 'wstest'), { recursive: true })
-  await call(routes, '/pomasa/record', 'POST', { masId: 'wstest', kind: 'run', unit: 'single', sessionId: 'run-1' })
+  fs.writeFileSync(path.join(home, 'registry.json'), JSON.stringify({ version: 1, mas: [{ id: 'wstest', name: 'wstest', status: 'idle' }] }))
+  await call(routes, '/pomasa/record', 'POST', { masId: 'wstest', kind: 'run', unit: DEFAULT_UNIT, task: LEGACY_TASK, sessionId: 'run-1' })
   await call(routes, '/pomasa/record', 'POST', { masId: 'wstest', kind: 'gen', sessionId: 'gen-1' })
   const reg = JSON.parse(fs.readFileSync(path.join(home, 'registry.json'), 'utf8'))
   const m = reg.mas.find((x) => x.id === 'wstest')
-  assert.equal(m.lastRunSessionIds.single, 'run-1')
+  assert.equal(m.lastRunSessionIds[`${DEFAULT_UNIT}|${LEGACY_TASK}`], 'run-1')
   assert.equal(m.lastGenSessionId, 'gen-1')
 })
 
@@ -681,16 +888,14 @@ test('L2 status machine: session-lifecycle states + single-run guard', async () 
   // mas-c: attempted generation, not complete, session gone -> gen-failed
   writeMas(home, 'mas-c', SINGLE_DESCRIPTOR)
   for (const id of ['mas-a', 'mas-b']) {
-    fs.mkdirSync(path.join(home, id, 'agents'), { recursive: true })
-    fs.writeFileSync(path.join(home, id, 'agents', '01.overview.md'), '# o')
-    fs.writeFileSync(path.join(home, id, 'agents', '02.research.md'), '# r')
+    writeAgentFixtures(home, id)
   }
   const status = async (id) => (await call(routes, '/pomasa/mas.list')).json.mas.find((m) => m.id === id).status
   assert.equal(await status('mas-a'), 'completed')
   assert.equal(await status('mas-b'), 'run-failed')
   assert.equal(await status('mas-c'), 'gen-failed')
   // single active run: recorded live run session blocks a second run.start
-  await call(routes, '/pomasa/record', 'POST', { masId: 'mas-a', kind: 'run', unit: 'single', sessionId: 'a-run' })
+  await call(routes, '/pomasa/record', 'POST', { masId: 'mas-a', kind: 'run', unit: DEFAULT_UNIT, task: LEGACY_TASK, sessionId: 'a-run' })
   agents.set('a-run', { id: 'a-run', status: 'running' })
   assert.equal(await status('mas-a'), 'running')
   const twice = await call(routes, '/pomasa/run.start', 'POST', { masId: 'mas-a' })
@@ -705,24 +910,23 @@ test('L2 status machine: session-lifecycle states + single-run guard', async () 
   // one run = one unit: multi run.start with several units is refused
   const multi = { schema_version: 'obv-1', mas_id: 'idx', work: { mode: 'multi', dimensions: ['country'] }, stages: [] }
   writeMas(home, 'idx', multi)
+  writeAgentFixtures(home, 'idx')
   fs.mkdirSync(path.join(home, 'idx', 'workspace', 'brasil'), { recursive: true })
   fs.mkdirSync(path.join(home, 'idx', 'workspace', 'india'), { recursive: true })
   fs.writeFileSync(path.join(home, 'idx', 'workspace', 'brasil', 'run.json'), JSON.stringify({ status: 'completed', stages: [] }))
   const multiStart = await call(routes, '/pomasa/run.start', 'POST', { masId: 'idx', units: ['brasil', 'india'] })
   assert.equal(multiStart.json.ok, false)
-  assert.match(multiStart.json.error, /一个单元|一个运行/)
+  assert.match(multiStart.json.error, /一次只运行|一个单元|一个运行|一个任务/)
   const oneStart = await call(routes, '/pomasa/run.start', 'POST', { masId: 'idx', units: ['india'] })
   assert.equal(oneStart.json.ok, true)
   // authoritative liveness: the agent registry decides, not run.json
   agents.get('a-run').status = 'ended'
   assert.equal(await status('mas-a'), 'completed') // completed run.json stays completed
   const deadReg = JSON.parse(fs.readFileSync(path.join(home, 'registry.json'), 'utf8'))
-  deadReg.mas.push({ id: 'mas-d', name: 'd', lastRunSessionIds: { single: 'pomasa-run-gone' } })
+  deadReg.mas.push({ id: 'mas-d', name: 'd', lastRunSessionIds: { [`${DEFAULT_UNIT}|${LEGACY_TASK}`]: 'pomasa-run-gone' } })
   fs.writeFileSync(path.join(home, 'registry.json'), JSON.stringify(deadReg))
   writeMas(home, 'mas-d', SINGLE_DESCRIPTOR, { run: { schema_version: 'obv-1', mas_id: 'mas-d', status: 'running', stages: [] } })
-  fs.mkdirSync(path.join(home, 'mas-d', 'agents'), { recursive: true })
-  fs.writeFileSync(path.join(home, 'mas-d', 'agents', '01.overview.md'), '# o')
-  fs.writeFileSync(path.join(home, 'mas-d', 'agents', '02.research.md'), '# r')
+  writeAgentFixtures(home, 'mas-d')
   assert.equal(await status('mas-d'), 'run-failed')
 })
 
@@ -764,7 +968,7 @@ test('L2 safety: generate requires topic, rejects dup ids', async () => {
   assert.match(dup.json.error, /exists/)
 })
 
-test('L2 client bundle: loads and registers shell.overlay + dock entry', () => {
+test('L2 client bundle: loads and registers footer startup + shell.overlay', () => {
   const bundlePath = path.join(ROOT, 'lib/client.js')
   assert.ok(fs.existsSync(bundlePath), 'lib/client.js missing — run npm run build:client first')
   const src = fs.readFileSync(bundlePath, 'utf8')
@@ -784,26 +988,35 @@ test('L2 client bundle: loads and registers shell.overlay + dock entry', () => {
   assert.match(src, /footnote_block_open/)
   assert.doesNotMatch(src, /INLINE_RE/)
   const registrations = []
-  const dockApps = []
   const loaded = []
   const sandbox = {
     // Real-browser globals the markdown-it bundle needs at module init:
     // entities/decodes its tables via atob/btoa (absent from a bare vm).
     atob, btoa,
     window: {
-      __dshAppDock__: {
-        register(def) { dockApps.push(def); return true },
-      },
       addEventListener() {},
       __ModuleLoader__: {
         load(cfg) {
           loaded.push(cfg.id)
-          const React = { createElement: (type, props, ...kids) => ({ type, props, kids }), Component: class {} }
+          const React = {
+            createElement: (type, props, ...kids) => ({ type, props, kids }),
+            Component: class {},
+            Fragment: 'Fragment',
+            useState: (v) => [v, () => {}],
+            useEffect: () => {},
+            useLayoutEffect: () => {},
+            useCallback: (fn) => fn,
+            useSyncExternalStore: (sub, snap) => snap(),
+            createContext: (defaultValue) => ({ Provider: 'Provider', _defaultValue: defaultValue }),
+            useContext: (ctx) => (ctx && ctx._defaultValue != null ? ctx._defaultValue : 0),
+          }
+          const ReactDOM = { createPortal: (node) => node }
           const mod = cfg.factory((name) => {
             if (name === 'react') return React
+            if (name === 'react-dom') return ReactDOM
             throw new Error('unexpected require: ' + name)
           })
-          const expectedSlots = ['shell.overlay']
+          const expectedSlots = ['sidebar.footer.action', 'shell.overlay']
           const vc = {
             inject(slotName, factory) {
               assert.equal(slotName, expectedSlots.shift())
@@ -823,15 +1036,14 @@ test('L2 client bundle: loads and registers shell.overlay + dock entry', () => {
   vm.createContext(sandbox)
   vm.runInContext(src, sandbox)
   assert.deepEqual(loaded, ['pomasa-studio'])
-  assert.equal(registrations.length, 1)
+  assert.equal(registrations.length, 2)
   assert.equal(registrations[0].id, 'pomasa-studio')
-  assert.equal(registrations[0].name, 'shell.overlay')
-  assert.ok(!registrations.some((r) => r.name === 'sidebar.footer.action'), 'the footer slot is owned by the dock now')
+  assert.equal(registrations[0].name, 'sidebar.footer.action')
+  assert.equal(registrations[1].id, 'pomasa-studio')
+  assert.equal(registrations[1].name, 'shell.overlay')
   assert.ok(!registrations.some((r) => r.name === 'conversation.view'), 'the in-session tab was removed')
-  assert.equal(dockApps.length, 1)
-  assert.equal(dockApps[0].id, 'pomasa-studio')
-  assert.equal(dockApps[0].label, 'POMASA')
-  assert.equal(typeof dockApps[0].onToggle, 'function', 'dock app must carry an onToggle')
+  assert.match(src, /registerStartupButton/)
+  assert.match(src, /'data-ps-startup': 'pomasa-studio'/)
 })
 
 async function findPnpmReact() {
@@ -863,39 +1075,85 @@ test('L2 client renders with real React (guards positional-children bugs)', asyn
     console.log('    (skip: react not found under ../deepseek-harness .pnpm)')
     return
   }
-  const src = buildClientSource(['api.js', 'md.js', 'i18n.js', 'meme.js', 'components.js', 'pages.js']) +
-    '\nglobalThis.__ps = { MasList, CreateMas, MasDetail, renderMarkdown, psEmpty, stageContractCards, __lang: langStore };'
-  // The real engine markdown-it bundles into the client: mirrors
-  // scripts/md-api.mjs so the SSR path exercises production rendering.
-  const MarkdownIt = (await import('markdown-it')).default
-  const mditFootnote = (await import('markdown-it-footnote')).default
-  const __psMd = {
-    createMarkdown() {
-      const md = new MarkdownIt({ html: false, linkify: false, typographer: false })
-      md.use(mditFootnote)
-      return md
-    },
-  }
-  const ctx = vm.createContext({ React: react.React, __psMd, window: {}, URL, setTimeout, clearTimeout })
+  const clientFiles = [
+    'util.js', 'api.js', 'md.js', 'i18n.js', 'meme.js', 'components.js',
+    'actions/bus.js', 'locators/context.js', 'configs/store.js', 'services/index.js',
+    'parts/slots.js', 'grid-view/grid.js', 'dialogue/queue.js', 'boot-sign/sign.js', 'basic-title-area/title.js',
+    'settings/panel.js', 'MAS-list/list.js', 'MAS-creator/form.js', 'file-reader/modals.js',
+    'subagent-details/artifacts.js', 'task-manager/store.js', 'task-tree/tree.js',
+    'operation-controller/controls.js', 'nodes-container/stages.js', 'agent-processing-bar/bar.js',
+    'workbench/boundary.js', 'layout/boot.js', 'layout/work.js', 'workbench/app.js', 'pages.js',
+  ]
+  const src = buildClientSource(clientFiles) +
+    '\nglobalThis.__ps = { MasList, BootLayout, CreateMas, MasDetail, WorkPage, WorkLayout, renderMarkdown, psEmpty, stageContractCards, locators, __lang: langStore };'
+  const ctx = vm.createContext({ React: react.React, window: {}, URL, setTimeout, clearTimeout })
   vm.runInContext('var h = React.createElement;\n' + src, ctx)
   const ps = ctx.__ps
   const api = { listMas: () => Promise.resolve({ ok: true, mas: [] }) }
 
-  const listHtml = react.SSR.renderToString(react.React.createElement(ps.MasList, { api, onCreate: () => {}, onOpen: () => {}, onListChange: () => {} }))
-  assert.match(listHtml, /POMASA/)
-  assert.match(listHtml, /全部研究 MAS 的全局工作台/)
-  // the create entry always lives in the nav head (left), never in the right pane
-  assert.match(listHtml, /新建 MAS/)
-  assert.match(listHtml, /<button/)
+  const listHtml = react.SSR.renderToString(react.React.createElement(ps.MasList, { api, onOpen: () => {}, onListChange: () => {} }))
   assert.match(listHtml, /加载中/)
+
+  const bootHtml = react.SSR.renderToString(react.React.createElement(ps.BootLayout, {
+    api,
+    onOpenMas: () => {},
+    onCreate: () => {},
+    onSettings: () => {},
+    onListChange: () => {},
+  }))
+  assert.match(bootHtml, /新建/)
+  assert.match(bootHtml, /全部研究 MAS 的全局工作台/)
+
+  const snapA = ps.locators.snapshot()
+  const snapB = ps.locators.snapshot()
+  assert.equal(snapA, snapB, 'locators snapshot must be referentially stable (#185)')
+  ps.locators.set({ masId: 'x' })
+  const snapC = ps.locators.snapshot()
+  ps.locators.set({ masId: 'x' })
+  assert.equal(snapC, ps.locators.snapshot(), 'no-op locators.set must not allocate a new snapshot')
+  ps.locators.set({ masId: null, unitKey: null, taskKey: null })
+
+  // Regression: useSyncExternalStore bare-calls subscribe — wrappers must not throw
+  assert.doesNotThrow(() => {
+    const unsub = configSubscribe(() => {})
+    assert.equal(typeof unsub, 'function')
+    unsub()
+  })
+  assert.doesNotThrow(() => {
+    const unsub = dialogueSubscribe(() => {})
+    assert.equal(typeof unsub, 'function')
+    unsub()
+  })
+  assert.doesNotThrow(() => react.SSR.renderToString(react.React.createElement(SettingsPanel, { onClose: () => {} })))
+  assert.doesNotThrow(() => react.SSR.renderToString(react.React.createElement(DialogueHost)))
+
+  assert.doesNotThrow(() => {
+    const unsub = gridSizesSubscribe(() => {})
+    assert.equal(typeof unsub, 'function')
+    unsub()
+  })
+  assert.doesNotThrow(() => react.SSR.renderToString(react.React.createElement(GridView, {
+    id: 'test.grid',
+    axis: 'row',
+    cells: [{ key: 'a', content: react.React.createElement('div', null, 'a') }],
+    defaults: [1],
+  })))
+  assert.doesNotThrow(() => react.SSR.renderToString(react.React.createElement(PartFrame, { title: 'T' }, 'body')))
+  assert.doesNotMatch(bootHtml, /ps-work-bottom/)
 
   // bilingual: flipping the language store re-renders the chrome in English
   ps.__lang.set('en')
-  const enListHtml = react.SSR.renderToString(react.React.createElement(ps.MasList, { api, onCreate: () => {}, onOpen: () => {}, onListChange: () => {} }))
-  assert.match(enListHtml, /All POMASA research MASes/)
-  assert.match(enListHtml, /New MAS/)
-  assert.match(enListHtml, /Language/)
-  assert.doesNotMatch(enListHtml, /新建 MAS/)
+  const enBootHtml = react.SSR.renderToString(react.React.createElement(ps.BootLayout, {
+    api,
+    onOpenMas: () => {},
+    onCreate: () => {},
+    onSettings: () => {},
+    onListChange: () => {},
+  }))
+  assert.match(enBootHtml, /All POMASA research MASes/)
+  assert.match(enBootHtml, /New/)
+  assert.match(enBootHtml, /Settings/)
+  assert.doesNotMatch(enBootHtml, /新建 MAS/)
   ps.__lang.set('zh')
 
   const createHtml = react.SSR.renderToString(react.React.createElement(ps.CreateMas, { api, onCancel: () => {}, onDone: () => {} }))
@@ -985,23 +1243,30 @@ test('L2 export endpoint returns a downloadable docx buffer (pdf disabled)', asy
   assert.equal(bad.code, 400)
 })
 
-test('L2 lifecycle: mas.delete removes dir, registry, and active sessions', async () => {
+test('L2 lifecycle: mas.delete soft hides from list but keeps dir; hard removes dir', async () => {
   const home = tempHome()
-  const { ctx, routes, agents } = mockCtx()
+  const { ctx, routes } = mockCtx()
   apply(ctx, { pomasaHome: home })
   await call(routes, '/pomasa/mas.create', 'POST', { projectId: 'gone', topic: 't' })
   const regBefore = JSON.parse(fs.readFileSync(path.join(home, 'registry.json'), 'utf8'))
   assert.ok(regBefore.mas.some((m) => m.id === 'gone'))
-  const del = await call(routes, '/pomasa/mas.delete', 'POST', { masId: 'gone' })
-  assert.equal(del.code, 200)
-  assert.equal(del.json.ok, true)
-  assert.equal(fs.existsSync(path.join(home, 'gone')), false)
+  const soft = await call(routes, '/pomasa/mas.delete', 'POST', { masId: 'gone' })
+  assert.equal(soft.code, 200)
+  assert.equal(soft.json.ok, true)
+  assert.equal(soft.json.permanent, false)
+  assert.equal(fs.existsSync(path.join(home, 'gone')), true, 'soft delete keeps directory')
+  assert.ok(fs.existsSync(path.join(home, 'gone', '.pomasa-hidden')))
   const gone = await call(routes, '/pomasa/generation.status?masId=gone')
   assert.equal(gone.code, 404)
   const list = await call(routes, '/pomasa/mas.list')
   assert.ok(!list.json.mas.some((m) => m.id === 'gone'))
   const ghost = await call(routes, '/pomasa/mas.delete', 'POST', { masId: 'nope' })
   assert.equal(ghost.code, 404)
+  await call(routes, '/pomasa/mas.create', 'POST', { projectId: 'hard', topic: 't' })
+  const hard = await call(routes, '/pomasa/mas.delete', 'POST', { masId: 'hard', permanent: true })
+  assert.equal(hard.code, 200)
+  assert.equal(hard.json.permanent, true)
+  assert.equal(fs.existsSync(path.join(home, 'hard')), false)
 })
 
 test('L2 unit.add: declares a new planned unit in a multi MAS', async () => {
@@ -1018,13 +1283,14 @@ test('L2 unit.add: declares a new planned unit in a multi MAS', async () => {
     stages: [{ index: 1, id: 'scan', title: 'Scan', agent: '01.scanner.md', contracts: [] }],
   }, null, 2))
   const before = await call(routes, '/pomasa/unit.list?masId=multi', 'GET')
-  assert.deepEqual(before.json.units.map((u) => u.key), ['brazil'])
-  const add = await call(routes, '/pomasa/unit.add', 'POST', { masId: 'multi', key: 'Korea' })
+  assert.ok(before.json.units.some((u) => u.key === 'brazil'))
+  const add = await call(routes, '/pomasa/unit.add', 'POST', { masId: 'multi', key: 'Korea', kind: 'country' })
   assert.equal(add.json.ok, true)
   const korea = add.json.units.find((u) => u.key === 'korea')
   assert.ok(korea && korea.planned && !korea.run, 'new unit must be planned, not run')
+  assert.equal(korea.kind, 'country')
   const persisted = JSON.parse(fs.readFileSync(path.join(root, 'pomasa.json'), 'utf8'))
-  assert.deepEqual(persisted.work.units, ['brazil', 'korea'])
+  assert.ok(persisted.work.units.some((u) => (typeof u === 'string' ? u : u.key) === 'korea'))
   // duplicate (case-normalized), invalid key, and single-mode MAS are rejected
   const dup = await call(routes, '/pomasa/unit.add', 'POST', { masId: 'multi', key: 'BRAZIL' })
   assert.equal(dup.json.ok, false)
@@ -1033,8 +1299,8 @@ test('L2 unit.add: declares a new planned unit in a multi MAS', async () => {
   await call(routes, '/pomasa/mas.create', 'POST', { projectId: 'single', topic: 't' })
   fs.mkdirSync(path.join(home, 'single', 'workspace'), { recursive: true })
   fs.writeFileSync(path.join(home, 'single', 'pomasa.json'), JSON.stringify({ work: { mode: 'single' }, stages: [] }, null, 2))
-  const single = await call(routes, '/pomasa/unit.add', 'POST', { masId: 'single', key: 'x' })
-  assert.equal(single.json.ok, false)
+  const single = await call(routes, '/pomasa/unit.add', 'POST', { masId: 'single', key: 'x', kind: 'default' })
+  assert.equal(single.json.ok, true)
 })
 
 test('L2 blueprint.read: reads within MAS root, rejects escapes', async () => {

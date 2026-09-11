@@ -1,15 +1,6 @@
 // Client entry — bundled to lib/client.js by scripts/bundle-client.mjs.
-// Entry: the workbench panel in shell.overlay, opened via the app dock
-// (dsh-app-dock) — pomasa-studio no longer occupies a sidebar.footer.action slot.
 export const inject = ['slots', 'workspaces', 'sessions']
 
-// Best-effort diagnostic: report which workspace/session services THIS ctx
-// exposes (DSH Desktop 0.7.2 shuffled the API; the host appends it under
-// ~/.pomasa/diag.jsonl so a broken install can be diagnosed without devtools).
-// Tolerant accessor: injected fibers surface services both as ctx.<name>
-// (declared in inject) and via ctx.get. Undeclared services THROW on the gated
-// runner ("cannot get property ... without inject") — both property access and
-// ctx.get — so swallow both and return null.
 function sf(ctx, name) {
   if (!ctx) return null
   try { if (ctx[name]) return ctx[name] } catch { /* gated property access */ }
@@ -53,46 +44,6 @@ export function apply(ctx) {
     }
   }
 
-  function PsBoundary(props) {
-    return h(BoundaryImpl, null, props.children ? React.Children.toArray(props.children) : null)
-  }
-
-  class BoundaryImpl extends React.Component {
-    constructor(props) {
-      super(props)
-      this.state = { err: null, stack: null, errStack: null }
-    }
-    static getDerivedStateFromError(err) {
-      return { err }
-    }
-    componentDidCatch(err, info) {
-      console.error('pomasa-studio render error:', err, info && info.componentStack)
-      this.setState({ errStack: err && err.stack })
-      if (info && info.componentStack) this.setState({ stack: info.componentStack })
-    }
-    render() {
-      if (this.state.err) {
-        return h('div', { className: 'ps-page' },
-          h('div', { className: 'ps-notice err' }, t('boundary.fail') + String((this.state.err && this.state.err.message) || this.state.err)),
-          this.state.stack
-            ? h('pre', { className: 'ps-pre', style: { fontSize: 12, overflow: 'auto', maxHeight: 320 } }, str(this.state.stack))
-            : null,
-          this.state.errStack
-            ? h('pre', { className: 'ps-pre', style: { fontSize: 12, overflow: 'auto', maxHeight: 320 } }, str(this.state.errStack))
-            : null,
-          h(psBtn, { ghost: true, onClick: () => this.setState({ err: null, stack: null, errStack: null }) }, t('retry')),
-        )
-      }
-      return this.props.children
-    }
-  }
-
-  // The footer toggles a workbench panel rendered through the DSH shell.overlay
-  // layer. The panel is BOUNDED to the center column (a transparent spacer keeps
-  // the sidebar width free), so the session tree and conversations stay visible
-  // and clickable — no full-screen takeover, reachable on ANY screen state
-  // (including brand-new blank sessions where conversation.view tabs don't
-  // render yet).
   const panel = {
     open: false,
     subs: new Set(),
@@ -100,15 +51,6 @@ export function apply(ctx) {
     toggle() { this.open = !this.open; this.emit() },
     close() { if (this.open) { this.open = false; this.emit() } },
     subscribe(fn) { this.subs.add(fn); return () => { this.subs.delete(fn) } },
-  }
-  // 点选 dsh 左侧会话（或面板外任意处）自动收起工作台：与 pictor 同款交互。
-  if (typeof document !== 'undefined') {
-    document.addEventListener('mousedown', (e) => {
-      if (!panel.open) return
-      const t = e.target
-      if (t && typeof t.closest === 'function' && t.closest('.ps-shell-panel')) return
-      panel.close()
-    })
   }
 
   function usePanelOpen() {
@@ -120,14 +62,9 @@ export function apply(ctx) {
     return v
   }
 
-  // Rendered inside shell.overlay while open. Root is a click-through full-frame
-  // flex row; only the panel opts back into pointer events, and the left spacer
-  // mirrors the sidebar width so the session list stays usable beneath it.
   function WorkbenchPanel() {
     const open = usePanelOpen()
     useLang()
-    // 透明隔条宽度 = dsh 侧栏（sidebarCol）当前实际宽度，随折叠/展开实时跟随，
-    // 与 pictor 的 pt-shell-nav 同一套机制（避免猜错宽度在会话区左缘留缝）。
     const [sb, setSb] = React.useState(280)
     React.useEffect(() => {
       if (!open) return
@@ -145,21 +82,22 @@ export function apply(ctx) {
       }
       return undefined
     }, [open])
-    // 恒挂载 + display 切换：关闭不卸载，重开恢复关闭前的界面（与 pictor 一致）
     return h('div', { className: 'ps-shell-root', style: open ? undefined : { display: 'none' } },
       h('div', { className: 'ps-shell-nav', style: { flexBasis: sb + 'px' } }),
       h('div', { className: 'ps-shell-panel' },
-        h(StudioRoot, { sessionId: '', key: 'shell' }),
+        h(StudioRoot, {
+          sessionId: '',
+          key: 'shell',
+          onRun: (masId, unitKey, taskKey, prompt, agentKey) => driveSession('run', masId, unitKey, taskKey, prompt, agentKey),
+          onFollowupExisting: (sessionId, prompt) => followupSession(sessionId, prompt),
+          onCancelRun: (masId) => cancelRunSession(masId),
+          onGeneration: (masId, prompt) => driveSession('gen', masId, 'default', null, prompt, 'orchestrator'),
+          sessionDriver,
+        }),
       ),
     )
   }
 
-  // Giving every pomasa session its "POMASA" workspace folder is done through
-  // the CLIENT workspaces service: it round-trips via the apiserver to the host
-  // registry and persists the workspace.sessionIds membership (poking
-  // ctx.workspaceRegistry directly from a plugin is unreliable across profiles).
-  // The service may not be mounted when the plugin applies, and sessions can
-  // register after load, so this self-retries with backoff (bounded).
   async function ensurePomasaWorkspaceClient(attempt = 0) {
     let svc
     try { svc = ctx.get('workspaces') } catch { svc = null }
@@ -193,42 +131,11 @@ export function apply(ctx) {
         } catch { /* cosmetic */ }
       }
     } catch { return retry() }
-    // Session accounting happens on the HOST via workspace.attachSession()
-    // (createAgentSession); there is no client RPC for it, so the client only
-    // guarantees the POMASA workspace folder exists and is titled correctly.
     if (!ws) retry()
   }
 
-  function applySlots(slots, h2) {
-    // 入坞：dsh-app-dock 是 pomasa-studio 的依赖，入口交给坞（含 ready 延迟注册），
-    // 自占 footer 槽移除。容忍加载顺序：注册表已就位即注册；否则等
-    // dsh-app-dock:ready 事件（once）。
-    const registerWithDock = () => {
-      if (typeof window === 'undefined' || !window.__dshAppDock__) return
-      window.__dshAppDock__.register({ id: 'pomasa-studio', label: 'POMASA', icon: '◫', order: 40, onToggle: () => panel.toggle() })
-      if (window.__dshAppDock__.lang) {
-        window.__dshAppDock__.lang.subscribe(() => {
-          const v = window.__dshAppDock__.lang.get()
-          if (langStore.val !== v) { langStore.val = v; langStore.emit() }
-        })
-      }
-    }
-    if (typeof window !== 'undefined' && !window.__dshAppDock__) {
-      window.addEventListener('dsh-app-dock:ready', registerWithDock, { once: true })
-    }
-    registerWithDock()
+  const lastRunSession = new Map()
 
-    slots.inject('shell.overlay', () => slots.register(
-      { name: 'shell.overlay', id: 'pomasa-studio', order: 10, label: t('studio.title') },
-      () => h2(WorkbenchPanel, null),
-    ))
-  }
-
-  // Session ids created by the client drive for each MAS, so cancel/intervene
-  // can target them through the sessions service.
-  const lastRunSession = new Map() // masId -> sessionId (most recent run)
-
-  // Cancel the most recent run session for a MAS via the DSH sessions service.
   async function cancelRunSession(masId) {
     const sid = lastRunSession.get(masId)
     if (!sid) return { ok: true }
@@ -236,27 +143,15 @@ export function apply(ctx) {
       const sessionsSvc = ctx.get('sessions')
       const bound = sessionsSvc && typeof sessionsSvc.binding === 'function' ? sessionsSvc.binding(sid) : null
       if (bound && bound.session && typeof bound.session.cancel === 'function') {
-        await bound.session.cancel('user')
+        await bound.session.cancel()
       }
     } catch { /* best-effort */ }
     return { ok: true }
   }
 
-  // Direction-1 driver: create the run/gen SESSION through the workspace flow
-  // (workspaces.connectWorkspace -> accounted in the POMASA workspace, exactly
-  // like the sidebar's New Session), drive it with sessions.prompt, and record
-  // the session id so the host status machine follows it. Returns { ok } or an
-  // error; the session appears under POMASA in the DSH sidebar.
-  async function driveSession(kind, masId, unit, prompt) {
+  async function driveSession(kind, masId, unitKey, taskKey, prompt, agentKey) {
     const workspacesSvc = sf(ctx, 'workspaces')
     const sessionsSvc = sf(ctx, 'sessions')
-    // Since DSH harness 0.1.2-alpha.1 (DSH Desktop 0.7.2) the workspace
-    // session entry moved off the `workspaces` service onto `uiWorkspace`;
-    // the new runner only exposes services the bundle declares in `inject`, and
-    // `uiWorkspace` is not available on legacy harnesses, so connect here via
-    // `workspaces.connectWorkspace` (legacy) or `sessions.create({ workspaceId })`
-    // (new harness — what uiWorkspace wraps). Both services are injectable on
-    // every harness generation.
     const uiWs = sf(ctx, 'uiWorkspace')
     const connectSession = (uiWs && typeof uiWs.connectWorkspace === 'function')
       ? uiWs.connectWorkspace.bind(uiWs)
@@ -265,14 +160,7 @@ export function apply(ctx) {
         : null
     const canCreate = !!(sessionsSvc && typeof sessionsSvc.create === 'function')
     if (!workspacesSvc || !sessionsSvc || typeof sessionsSvc.binding !== 'function' || (!connectSession && !canCreate)) {
-      // Diagnostic for remote debugging: which service leg is missing.
-      const diag = {
-        ws: !!workspacesSvc,
-        ses: !!sessionsSvc && typeof sessionsSvc.binding === 'function',
-        uiws: !!uiWs,
-        conn: !!connectSession,
-        create: canCreate,
-      }
+      const diag = { ws: !!workspacesSvc, ses: !!sessionsSvc && typeof sessionsSvc.binding === 'function', uiws: !!uiWs, conn: !!connectSession, create: canCreate }
       console.warn('[pomasa] session services unavailable', diag)
       try { pomasaDiag(ctx, 'drive:fail') } catch { /* ignore */ }
       return { ok: false, error: `${t('err.ws.svc')} [ws:${diag.ws},ses:${diag.ses},uiws:${diag.uiws},conn:${diag.conn},create:${diag.create}]` }
@@ -312,59 +200,143 @@ export function apply(ctx) {
         return { ok: false, error: t('err.ws.no.prompt') }
       }
     } catch (e) { return { ok: false, error: t('err.ws.start', { m: String(e && e.message || e) }) } }
-    try { await fetch('/pomasa/record', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ masId, kind, unit: unit || 'single', sessionId }) }) } catch { /* best-effort */ }
+    try {
+      await fetch('/pomasa/record', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          masId,
+          kind,
+          unit: unitKey || 'default',
+          task: taskKey || 'legacy',
+          sessionId,
+          agentKey: agentKey || (kind === 'gen' ? 'orchestrator' : 'orchestrator'),
+        }),
+      })
+    } catch { /* best-effort */ }
     if (kind === 'run') lastRunSession.set(masId, sessionId)
     try { pomasaDiag(ctx, 'drive:ok') } catch { /* ignore */ }
     return { ok: true, sessionId }
   }
 
-  function StudioRoot(props) {
-    useLang() // whole workbench re-renders when the language changes
-    const [selectedId, setSelectedId] = React.useState(null)
-    const [mode, setMode] = React.useState('browse') // 'browse' | 'create'
-    const [masCount, setMasCount] = React.useState(null) // null = list not loaded yet
-    const apiRef = React.useRef(null)
-    if (!apiRef.current) apiRef.current = createApi()
-    const api = apiRef.current
+  async function followupSession(sessionId, text) {
+    const sessionsSvc = sf(ctx, 'sessions')
+    if (!sessionsSvc || typeof sessionsSvc.binding !== 'function') {
+      return { ok: false, error: t('err.ws.svc') }
+    }
+    try {
+      const bound = sessionsSvc.binding(sessionId)
+      const sess = bound && bound.session
+      if (sess && typeof sess.prompt === 'function') {
+        await sess.prompt([{ type: 'text', text: String(text || '') }], 'queue')
+        return { ok: true, sessionId }
+      }
+      return { ok: false, error: t('err.ws.no.prompt') }
+    } catch (e) {
+      return { ok: false, error: String(e && e.message || e) }
+    }
+  }
 
-    const left = h(MasList, {
-      api,
-      selectedId,
-      onCreate: () => setMode('create'),
-      onSelect: (id) => { setSelectedId(id); setMode('browse') },
-      onDelete: (id) => { if (selectedId === id) setSelectedId(null) },
-      onListChange: setMasCount,
-    })
+  async function openSessionForWatch(sessionsSvc, sessionId) {
+    if (typeof sessionsSvc.open === 'function') {
+      try { sessionsSvc.open(sessionId) } catch { /* ignore */ }
+    }
+    let bound = typeof sessionsSvc.binding === 'function' ? sessionsSvc.binding(sessionId) : null
+    if ((!bound || !bound.session) && typeof sessionsSvc.subagentAddress === 'function') {
+      const addr = sessionsSvc.subagentAddress(sessionId)
+      if (addr && typeof sessionsSvc.openSubagent === 'function') {
+        try { sessionsSvc.openSubagent(addr) } catch { /* ignore */ }
+      }
+    }
+  }
 
-    let right
-    if (mode === 'create') {
-      right = h(CreateMas, {
-        api,
-        onCancel: () => setMode('browse'),
-        onDone: (id) => { setSelectedId(id || null); setMode('browse') },
-        onGeneration: (masId, prompt) => driveSession('gen', masId, 'single', prompt),
-      })
-    } else if (selectedId) {
-      right = h(MasDetail, { key: selectedId, api, masId: selectedId, onRun: (masId, unit, prompt) => driveSession('run', masId, unit, prompt), onCancelRun: (masId) => cancelRunSession(masId) })
-    } else if (masCount === 0) {
-      // first open, nothing exists yet: an onboarding hero — the create action
-      // lives only in the left nav head
-      right = h('div', { className: 'ps-empty-hero' },
-        h('div', { className: 'ps-hero-glyph' }, '◌'),
-        h('h2', null, t('hero.first.title')),
-        h('p', null, t('hero.first.desc')),
-        h('span', { className: 'ps-caption' }, t('hero.ai.note')),
-      )
-    } else {
-      // MASes exist, none selected
-      right = h('div', { className: 'ps-empty-hero quiet' },
-        h('img', { className: 'ps-meme', src: MASA_MEME_URL, alt: '', draggable: false, onError: (e) => { if (e && e.currentTarget) e.currentTarget.src = MASA_MEME } }),
-        h('h2', null, t('hero.choose.title')),
-        h('p', null, t('hero.choose.desc')),
-      )
+  async function watchSession(sessionId, onUpdate, opts) {
+    if (!sessionId || typeof onUpdate !== 'function') return () => {}
+    const sessionsSvc = sf(ctx, 'sessions')
+    let persisted = []
+    let stopped = false
+    let liveUnsub = () => {}
+
+    async function pullPersisted() {
+      if (!opts || !opts.masId || !opts.agentKey) return
+      try {
+        const r = await fetch('/pomasa/agent.log' + '?' + [
+          'masId=' + encodeURIComponent(opts.masId),
+          'unit=' + encodeURIComponent(opts.unitKey || 'default'),
+          'task=' + encodeURIComponent(opts.taskKey || ''),
+          'agentKey=' + encodeURIComponent(opts.agentKey),
+        ].join('&'))
+        const log = r.ok ? await r.json() : null
+        if (log && log.ok && Array.isArray(log.events)) {
+          persisted = eventsToChatMessages(log.events)
+        }
+      } catch { /* persistence is best-effort */ }
     }
 
-    return h(PsBoundary, null, h('div', { className: 'ps-workbench' }, left, right))
+    function emitMerged() {
+      if (stopped) return
+      let live = []
+      if (sessionsSvc && typeof sessionsSvc.binding === 'function') {
+        const face = sessionsSvc.binding(sessionId)?.session
+        if (face && typeof face.getSnapshot === 'function') {
+          try { live = snapshotToChatMessages(face.getSnapshot()) } catch { live = [] }
+        }
+      }
+      onUpdate(mergeChatMessages(persisted, live))
+    }
+
+    await pullPersisted()
+    emitMerged()
+
+    const pollId = setInterval(() => {
+      pullPersisted().then(emitMerged).catch(() => {})
+    }, 2500)
+
+    const liveRequested = !!(opts && opts.live)
+    if (liveRequested && sessionsSvc) {
+      await openSessionForWatch(sessionsSvc, sessionId)
+      const face = sessionsSvc.binding?.(sessionId)?.session
+      if (face && typeof face.subscribe === 'function' && typeof face.getSnapshot === 'function') {
+        liveUnsub = face.subscribe(emitMerged)
+        emitMerged()
+      }
+    }
+
+    return () => {
+      stopped = true
+      clearInterval(pollId)
+      liveUnsub()
+    }
+  }
+
+  async function readSessionMessages(sessionId) {
+    const sessionsSvc = sf(ctx, 'sessions')
+    if (!sessionsSvc || typeof sessionsSvc.binding !== 'function') return []
+    try {
+      if (typeof sessionsSvc.open === 'function') await sessionsSvc.open(sessionId)
+      const bound = sessionsSvc.binding(sessionId)
+      const face = bound && bound.session
+      if (face && typeof face.getSnapshot === 'function') {
+        return snapshotToChatMessages(face.getSnapshot())
+      }
+    } catch { /* ignore */ }
+    return []
+  }
+
+  const sessionDriver = {
+    followup: followupSession,
+    readMessages: readSessionMessages,
+    watch: watchSession,
+  }
+  setSessionDriver(sessionDriver)
+
+  function applySlots(slots, h2) {
+    registerStartupButton(slots, panel, h2)
+
+    slots.inject('shell.overlay', () => slots.register(
+      { name: 'shell.overlay', id: 'pomasa-studio', order: 10, label: t('studio.title') },
+      () => h2(WorkbenchPanel, null),
+    ))
   }
 
   applySlots(slots, h)

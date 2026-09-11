@@ -18,26 +18,48 @@ function createApi() {
     getMas: (masId) => request('/pomasa/mas.get' + q({ masId })),
     generationStatus: (masId) => request('/pomasa/generation.status' + q({ masId })),
     unitList: (masId) => request('/pomasa/unit.list' + q({ masId })),
-    unitState: (masId, unit) => request('/pomasa/unit.state' + q({ masId, unit: unit || '' })),
-    artifact: (masId, unit, path) => request('/pomasa/artifact.read' + q({ masId, unit: unit || '', path })),
-    artifactHead: (masId, unit, path) => request('/pomasa/artifact.read' + q({ masId, unit: unit || '', path, head: '1' })),
+    unitState: (masId, unitKey, taskKey) => request('/pomasa/unit.state' + q({ masId, unit: unitKey || 'default', task: taskKey || '' })),
+    artifact: (masId, unitKey, taskKey, path) => request('/pomasa/artifact.read' + q({ masId, unit: unitKey || 'default', task: taskKey || 'legacy', path })),
+    artifactHead: (masId, unitKey, taskKey, path) => request('/pomasa/artifact.read' + q({ masId, unit: unitKey || 'default', task: taskKey || 'legacy', path, head: '1' })),
     blueprintRead: (masId, path, stage) => request('/pomasa/blueprint.read' + q({ masId, path, ...(stage != null ? { stage } : {}) })),
-    runLog: (masId, unit) => request('/pomasa/run.log' + q({ masId, unit: unit || '' })),
+    runLog: (masId, unitKey, taskKey) => request('/pomasa/run.log' + q({ masId, unit: unitKey || 'default', task: taskKey || 'legacy' })),
     generationLog: (masId) => request('/pomasa/generation.log' + q({ masId })),
-    // prepare a run: validates and returns the orchestrator prompt (the session
-    // itself is created by the client through the workspace flow). mode 'fresh'
-    // wipes the unit's outputs first; 'continue' keeps them and the instruction
-    // steers how existing outputs evolve.
-    startRun: (masId, unit, opts) => request('/pomasa/run.start', { method: 'POST', body: JSON.stringify({
+    startRun: (masId, unitKey, taskKey, opts) => request('/pomasa/run.start', { method: 'POST', body: JSON.stringify({
       masId,
-      units: unit == null ? [] : [unit],
+      unit: unitKey || 'default',
+      task: taskKey || '',
       mode: (opts && opts.mode) || 'continue',
       instruction: (opts && opts.instruction) || '',
     }) }),
-    unitAdd: (masId, key) => request('/pomasa/unit.add', { method: 'POST', body: JSON.stringify({ masId, key }) }),
+    unitAdd: (masId, key, kind) => request('/pomasa/unit.add', { method: 'POST', body: JSON.stringify({ masId, key, kind: kind || 'default' }) }),
+    unitRename: (masId, unitKey, newKey) => request('/pomasa/unit.rename', { method: 'POST', body: JSON.stringify({ masId, unit: unitKey, newKey }) }),
+    unitRemove: (masId, unitKey, permanent = false) => request('/pomasa/unit.remove', { method: 'POST', body: JSON.stringify({ masId, unit: unitKey, permanent: !!permanent }) }),
+    taskCreate: (masId, unitKey) => request('/pomasa/task.create', { method: 'POST', body: JSON.stringify({ masId, unit: unitKey || 'default' }) }),
+    taskRename: (masId, unitKey, taskKey, newKey) => request('/pomasa/task.rename', { method: 'POST', body: JSON.stringify({ masId, unit: unitKey || 'default', task: taskKey, newKey }) }),
+    taskRemove: (masId, unitKey, taskKey, permanent = false) => request('/pomasa/task.remove', { method: 'POST', body: JSON.stringify({ masId, unit: unitKey || 'default', task: taskKey, permanent: !!permanent }) }),
     exportMd: (content, format) => fetch('/pomasa/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, format }) }).then((r) => (r.ok ? r.blob() : null)),
     createMas: (fields) => request('/pomasa/mas.create', { method: 'POST', body: JSON.stringify(fields) }),
-    recordSession: (masId, kind, unit, sessionId) => request('/pomasa/record', { method: 'POST', body: JSON.stringify({ masId, kind, unit: unit || 'single', sessionId }) }),
-    deleteMas: (masId) => request('/pomasa/mas.delete', { method: 'POST', body: JSON.stringify({ masId }) }),
+    recordSession: (masId, kind, unitKey, taskKey, sessionId, agentKey) => request('/pomasa/record', { method: 'POST', body: JSON.stringify({
+      masId,
+      kind,
+      unit: unitKey || 'default',
+      task: taskKey || 'legacy',
+      sessionId,
+      agentKey: agentKey || 'orchestrator',
+    }) }),
+    subagentList: (masId, unitKey, taskKey) => request('/pomasa/subagent.list' + q({ masId, unit: unitKey || 'default', task: taskKey || '' })),
+    subagentInfo: (masId, unitKey, taskKey, agentKey) => request('/pomasa/subagent.info' + q({
+      masId,
+      unit: unitKey || 'default',
+      task: taskKey || '',
+      agentKey: agentKey || 'orchestrator',
+    })),
+    agentLog: (masId, unitKey, taskKey, agentKey) => request('/pomasa/agent.log' + q({
+      masId,
+      unit: unitKey || 'default',
+      task: taskKey || '',
+      agentKey: agentKey || 'orchestrator',
+    })),
+    deleteMas: (masId, permanent = false) => request('/pomasa/mas.delete', { method: 'POST', body: JSON.stringify({ masId, permanent: !!permanent }) }),
   }
 }

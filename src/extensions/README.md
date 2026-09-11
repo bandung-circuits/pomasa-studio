@@ -1,0 +1,1 @@
+contains third part extensions for pomasa studio.

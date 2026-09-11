@@ -12,3 +12,5 @@ lib/
 # Playwright artifacts
 test-results/
 playwright-report/
+
+references/

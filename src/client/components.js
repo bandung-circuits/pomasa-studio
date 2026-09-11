@@ -21,19 +21,6 @@ function psCard(props, children) {
   return h('div', Object.assign({}, rest, { className: cls.join(' ') }), k(props, children))
 }
 
-function psBtn(props, children) {
-  const cls = ['ps-btn']
-  if (props.primary) cls.push('primary')
-  if (props.ghost) cls.push('ghost')
-  if (props.className) cls.push(props.className)
-  const rest = Object.assign({}, props)
-  delete rest.primary
-  delete rest.ghost
-  delete rest.children
-  delete rest.className
-  return h('button', Object.assign({}, rest, { className: cls.join(' '), type: props.type || 'button' }), k(props, children))
-}
-
 function psBadge(props, children) {
   const status = (typeof props === 'string' ? props : props.status) || 'idle'
   return h('span', { className: 'ps-badge ' + status },

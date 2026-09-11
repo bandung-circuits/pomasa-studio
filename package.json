@@ -15,7 +15,6 @@
     "skill/",
     "pomasa-home/",
     "scripts/bundle-client.mjs",
-    "scripts/md-api.mjs",
     "cordis.patch.yml",
     "README.md"
   ],
@@ -35,6 +34,8 @@
   },
   "scripts": {
     "build:client": "node scripts/bundle-client.mjs",
+    "debug": "node test/debug.js",
+    "debug:watch": "node test/debug.js --watch",
     "verify": "node scripts/bundle-client.mjs && node verify.mjs",
     "test:transport": "bash scripts/transport-smoke.sh",
     "test:pack": "bash scripts/package-integrity.sh",
@@ -59,7 +60,6 @@
   },
   "dependencies": {
     "docx": "^9.7.1",
-    "dsh-app-dock": "^0.1.2",
     "markdown-it": "^15.0.1",
     "markdown-it-footnote": "^4.0.0"
   }
