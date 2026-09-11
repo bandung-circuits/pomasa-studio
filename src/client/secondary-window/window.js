@@ -67,8 +67,11 @@ function SecondaryWindow(props) {
     className,
     bodyClassName,
     children,
-    hierarchyBase = 0,
+    hierarchyBase,
   } = props
+
+  const ctxBase = useHierarchyBase()
+  const resolvedBase = hierarchyBase != null ? hierarchyBase : ctxBase
 
   React.useEffect(() => {
     if (!open) return
@@ -85,7 +88,7 @@ function SecondaryWindow(props) {
   const modalCls = ['ps-modal', 'ps-modal-wide', 'ps-secondary-window']
   if (className) modalCls.push(className)
 
-  const backdrop = psHierarchyBackdropProps('secondary', hierarchyBase)
+  const backdrop = psHierarchyBackdropProps('secondary', resolvedBase)
   const modal = h(HierarchyScope, { kind: 'secondary', base: hierarchyBase },
     h('div', Object.assign({}, backdrop, { onClick: onClose }),
       h('div', { className: modalCls.join(' '), onClick: (e) => e.stopPropagation() },

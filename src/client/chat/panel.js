@@ -1,30 +1,16 @@
-// Agent chat panel — ConversationRoot-like layout in work.right grid cell.
+// Agent chat panel — docks DSH ConversationRoot (scrollBody + composer) into work.right.
 
-function ChatMessageList(props) {
-  const { messages } = props
-  const list = messages || []
-  if (!list.length) {
-    return h('div', { className: 'ps-chat-empty' }, t('chat.empty'))
-  }
-  return h('div', { className: 'ps-chat-msgs' },
-    list.map((m, i) => h('div', { key: i, className: 'ps-chat-msg ' + (m.role || 'assistant') + (m.partial ? ' partial' : '') },
-      h('div', { className: 'ps-chat-role' }, m.role === 'user' ? t('chat.you') : t('chat.agent')),
-      h('div', { className: 'ps-chat-text' }, str(m.text)),
-    )),
-  )
-}
-
-function AgentChatPanel(props) {
-  const { sessionDriver } = props
+function AgentChatPanel() {
   const loc = useLocators()
   const api = getServices()
-  const [messages, setMessages] = React.useState([])
+  const workbenchOpen = useWorkbenchOpen()
+  const expandOpen = useNodesExpandOpen()
   const [info, setInfo] = React.useState(null)
-  const [busy, setBusy] = React.useState(false)
-  const [draft, setDraft] = React.useState('')
   const agentKey = loc.agentKey || 'orchestrator'
   const subCache = useSubagentClient()
   const cacheEntry = subCache[subagentClient.key(loc.masId, loc.unitKey, loc.taskKey, agentKey)]
+  const orchEntry = subCache[subagentClient.key(loc.masId, loc.unitKey, loc.taskKey, 'orchestrator')]
+  const orchAlive = !!(orchEntry && orchEntry.alive)
 
   const loadInfo = React.useCallback(async () => {
     if (!loc.masId || !agentKey) { setInfo(null); return }
@@ -36,7 +22,6 @@ function AgentChatPanel(props) {
   React.useEffect(() => actionBus.on('agent.chat.select', () => loadInfo()), [loadInfo])
   React.useEffect(() => actionBus.on('node.select', () => loadInfo()), [loadInfo])
 
-  // NodesContainer polls subagent.list every 3s — mirror live/alive into chat watch deps.
   React.useEffect(() => {
     if (!cacheEntry || !cacheEntry.sessionId) return
     setInfo((prev) => {
@@ -49,82 +34,44 @@ function AgentChatPanel(props) {
     })
   }, [cacheEntry && cacheEntry.live, cacheEntry && cacheEntry.alive, cacheEntry && cacheEntry.registered, cacheEntry && cacheEntry.sessionId])
 
-  React.useEffect(() => {
-    if (!loc.masId || !agentKey) return undefined
-    const t = setInterval(() => { loadInfo() }, 3000)
-    return () => clearInterval(t)
-  }, [loadInfo, loc.masId, agentKey])
+  const bind = buildNativeBind(info, agentKey, subCache, loc)
+  const bindKey = bind
+    ? (bind.address
+      ? bind.address.parentSessionId + '|' + bind.address.childSessionId
+      : bind.sessionId || '')
+    : ''
+  const active = !!(workbenchOpen && loc.masId && bind && !expandOpen)
 
   React.useEffect(() => {
-    if (!info || !info.sessionId || !sessionDriver || typeof sessionDriver.watch !== 'function') {
-      setMessages([])
-      return undefined
+    if (typeof document === 'undefined') return undefined
+    const locked = orchAlive && workbenchOpen && bind && !expandOpen
+    if (locked) document.body.classList.add('ps-native-composer-locked')
+    else document.body.classList.remove('ps-native-composer-locked')
+    return () => { document.body.classList.remove('ps-native-composer-locked') }
+  }, [orchAlive, workbenchOpen, bindKey, expandOpen])
+
+  React.useEffect(() => {
+    if (workbenchOpen && bind && !expandOpen) return undefined
+    undockConversationRoot()
+    const sessionsSvc = getSessionsService()
+    if (sessionsSvc && nativeConversationState.savedSelection) {
+      restoreSessionSelection(sessionsSvc, nativeConversationState.savedSelection)
+      nativeConversationState.savedSelection = null
     }
-    let stop = false
-    let off = () => {}
-    Promise.resolve(sessionDriver.watch(info.sessionId, (msgs) => {
-      if (!stop) setMessages(Array.isArray(msgs) ? msgs : [])
-    }, {
-      masId: loc.masId,
-      unitKey: loc.unitKey,
-      taskKey: loc.taskKey,
-      agentKey,
-      live: !!(info && info.live),
-    })).then((unsub) => {
-      if (stop && typeof unsub === 'function') unsub()
-      else off = typeof unsub === 'function' ? unsub : () => {}
-    })
-    return () => { stop = true; off() }
-  }, [info && info.sessionId, info && info.live, sessionDriver, loc.masId, loc.unitKey, loc.taskKey, agentKey])
+    return undefined
+  }, [workbenchOpen, bindKey, expandOpen])
 
-  const canSend = !!(info && info.live && info.sessionId && sessionDriver && sessionDriver.followup)
-  const submit = async () => {
-    const text = String(draft || '').trim()
-    if (!text || !canSend || busy) return
-    setBusy(true)
-    try {
-      const r = await sessionDriver.followup(info.sessionId, text)
-      if (r && r.ok) setDraft('')
-    } finally { setBusy(false) }
+  if (!workbenchOpen || !loc.masId) {
+    return h('div', { className: 'ps-chat-empty ps-muted' }, t('chat.need.run'))
   }
 
-  const title = info && info.agent ? str(info.agent.title) : (agentKey === 'orchestrator' ? t('chat.orchestrator') : str(agentKey))
+  if (!bind) {
+    return h('div', { className: 'ps-native-conversation-placeholder' },
+      h('div', { className: 'ps-chat-empty ps-muted' }, t('chat.need.run')),
+    )
+  }
 
-  return h(React.Fragment, null,
-    h(ScrollFrame, { 'data-conversation-scroll': '' },
-      h(ScrollBox, null,
-        h('div', { className: 'ps-chat-head' },
-          h('span', { className: 'ps-chat-title' }, title),
-          info && info.alive ? h('span', { className: 'ps-badge running' }, t('node.alive')) : null,
-        ),
-        !info || !info.sessionId
-          ? h('div', { className: 'ps-chat-empty ps-muted' }, t('chat.need.run'))
-          : h(ChatMessageList, { messages }),
-      ),
-    ),
-    h('div', { className: 'ps-chat-composer-seat', 'data-composer-seat': '' },
-      h('div', { className: 'ps-chat-compose' },
-        h('div', { className: 'ps-chat-compose-card' },
-          h('textarea', {
-            className: 'ps-chat-compose-input',
-            rows: 3,
-            value: draft,
-            disabled: !canSend || busy,
-            placeholder: canSend ? t('chat.placeholder') : t('chat.disabled'),
-            onChange: (e) => setDraft(e.target.value),
-            onKeyDown: (e) => {
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() }
-            },
-          }),
-          h('div', { className: 'ps-chat-compose-actions' },
-            h(PsButton, {
-              id: 'send',
-              disabled: !canSend || busy || !draft.trim(),
-              onClick: submit,
-            }),
-          ),
-        ),
-      ),
-    ),
+  return h('div', { className: 'ps-native-conversation-host' },
+    h(NativeConversationSeat, { active, bind }),
   )
 }

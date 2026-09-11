@@ -52,6 +52,8 @@ export function apply(ctx) {
     close() { if (this.open) { this.open = false; this.emit() } },
     subscribe(fn) { this.subs.add(fn); return () => { this.subs.delete(fn) } },
   }
+  setWorkbenchPanel(panel)
+  setSessionsService(sf(ctx, 'sessions'))
 
   function usePanelOpen() {
     if (typeof React.useSyncExternalStore === 'function') {

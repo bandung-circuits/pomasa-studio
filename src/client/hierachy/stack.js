@@ -6,6 +6,8 @@ const PS_HIERARCHY = {
   TEMPORARY: 5,
   DIALOGUE: 9,
   SECONDARY: 10,
+  /** ConversationRoot dock in chat — above shell.overlay (20), below #ps-overlay-root (100). */
+  DOCK: 21,
 }
 
 const PS_HIERARCHY_KIND = {
@@ -14,6 +16,7 @@ const PS_HIERARCHY_KIND = {
   temporary: PS_HIERARCHY.TEMPORARY,
   dialogue: PS_HIERARCHY.DIALOGUE,
   secondary: PS_HIERARCHY.SECONDARY,
+  dock: PS_HIERARCHY.DOCK,
 }
 
 /** Global floor so portaled overlays sit above parts (z-index 1–3) and grid chrome. */
@@ -36,6 +39,7 @@ function psHierarchyChildBase(kind, base) {
 function psHierarchyZ(kind, base) {
   const b = Number(base) || 0
   const offset = psHierarchyOffset(kind)
+  if (offset === PS_HIERARCHY.DOCK) return offset
   if (offset >= PS_HIERARCHY.INFO) return PS_HIERARCHY_OVERLAY_FLOOR + b + offset
   return b + offset
 }
@@ -99,4 +103,17 @@ function psOverlayRoot() {
     document.body.appendChild(el)
   }
   return el
+}
+
+/** Portal a secondary overlay into #ps-overlay-root with optional nested hierarchy base. */
+function portalSecondaryModal(hierarchyBase, content) {
+  const inner = h(HierarchyScope, {
+    kind: 'secondary',
+    base: hierarchyBase != null ? hierarchyBase : undefined,
+  }, content)
+  const root = psOverlayRoot()
+  if (root && typeof ReactDOM !== 'undefined' && ReactDOM.createPortal) {
+    return ReactDOM.createPortal(inner, root)
+  }
+  return inner
 }

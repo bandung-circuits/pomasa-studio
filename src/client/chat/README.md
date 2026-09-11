@@ -1,27 +1,32 @@
 # chat (client)
 
 ## 职责
-右栏节点对话面板 `AgentChatPanel`（`work.right` grid 下半格，可拖拽缩放）。
+右栏节点对话面板 `AgentChatPanel`（`work.right` grid 下半格）。**不**自绘消息/composer，而是把 DSH 主页 `ConversationRoot`（`[data-conversation-scroll]` 及其 composer）**视觉对齐**到本 part 占位盒。
 
 ## 布局
-对齐 DSH `ConversationRoot` + `InputBar` 几何（不二次挂载主 UI `conversation` slot）：
 
 ```
 ps-part-body-chat
-  ScrollFrame (80%) > ScrollBox > head + 消息
-  ps-chat-composer-seat (20%)
+  ps-native-conversation-host
+    ps-native-conversation-seat   ← ResizeObserver 对齐目标
 ```
 
-滚动在 ScrollFrame；composer 与 Frame 并列，不进 Box。
+主页 ConversationRoot 仍挂在 `CenterColumn` 的 React 树下；仅用 `position: fixed` 对齐到 seat，**不** `appendChild`。
 
 ## 绑定
-- `locators.agentKey` → `api.subagentInfo` → `sessionId` / `registered` / `live` / `alive`
-- **状态刷新**：`subagent.list` 3s 轮询 → `subagentClient` 缓存 → chat 同步 `live`/`alive`；chat 另每 3s `subagentInfo`
-- **历史**：`sessionDriver.watch(sid, cb, { masId, unitKey, taskKey, agentKey, live })`
-  1. 立即 + 每 2.5s `GET /pomasa/agent.log`（parked / 无 live 绑定时仍更新）
-  2. 若 `live`：`sessions.open` / `openSubagent` + `subscribe` + `getSnapshot`（运行中增量）
-  3. 空 live snapshot **不覆盖** persistence 历史
-- **发送**：`sessionDriver.followup(sid, text)` — 仅 `live` 时启用 composer
+
+- `locators.agentKey` → `/pomasa/subagent.info` → `sessionId`
+- 编排器：`sessions.open(sessionId)`
+- 子 agent：`sessions.openSubagent({ parentSessionId: 编排器 sid, childSessionId, mode: 'continuable' })`
+- 进入工作台前记住 `list.current` / `currentAddress`；overlay 关闭或失去 bind 时 **restore**
+
+## 模块
+
+- [`native-seat.js`](native-seat.js) — `NativeConversationSeat`、`buildNativeBind`、dock/undock
+- [`panel.js`](panel.js) — locators + subagent 信息 → `bind` + `active`（`useWorkbenchOpen()`）
 
 ## 注意
-Parked 子代理不对 DSH 主 UI 调 `sessions.open`（避免闪一下再清空）。编排器 live 时仍可用 followup。
+
+- 选择器用 `[data-conversation-scroll]` / `[data-composer-seat]`，不用 CSS Modules 哈希 class
+- 不再轮询 `/pomasa/agent.log` 作为对话源；原生 mux + history 由 DSH runtime 负责
+- `subagent.list` 轮询仍只用于节点 live/alive 灯，与对话通道解耦

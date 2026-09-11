@@ -47,6 +47,7 @@ export const CLIENT_BUNDLE_FILES = [
   'subagent-manager/store.js',
   'subagents/node.js',
   'orchestrator/row.js',
+  'chat/native-seat.js',
   'chat/panel.js',
   'task-manager/store.js',
   'task-tree/tree-child/child.js',

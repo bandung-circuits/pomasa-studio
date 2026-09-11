@@ -11,6 +11,9 @@
 | temporary | +5 |
 | dialogue | +9 |
 | secondary | +10 |
+| dock | 21（绝对值，不加 overlay floor 100） |
+
+`dock`：DSH `ConversationRoot` 迁入 chat 栏时的 fixed 定位层。高于 `shell.overlay`（20），低于 `#ps-overlay-root`（100）。
 
 ## 叠加规则
 
@@ -27,16 +30,19 @@
 
 主 Part 内触发的 temporary 仍为 base=0 → z=105，低于 secondary。
 
+expand 窗口（base=10）内打开蓝图：`snapshotHierarchyBase()` → 110，portal secondary → z=100+110+10=**120**。
+
 ## API（`stack.js`）
 
 - `psHierarchyChildBase(kind, base)` → 累加偏移后的子 base
-- `psHierarchyZ(kind, base)` → 数字 z（overlay 类 kind 有全局 floor 100 + base + offset）
+- `psHierarchyZ(kind, base)` → 数字 z（overlay 类 kind 有全局 floor 100 + base + offset；`dock` 固定 21）
 - `psHierarchyProps(kind, base)` → `{ className: 'ps-hier', style: { zIndex, '--ps-z' } }`
 - `psHierarchyBackdropProps(kind, base)` → 模态 backdrop
 - `psHierarchyMainProps()` → 工作台 / Part 基底（含 `--ps-z-part`）
 - `useHierarchyBase()` → React Context，当前 scope 累积 base
-- `snapshotHierarchyBase()` → 同步读取栈顶 base（dialogue / menu 入队时用）
+- `snapshotHierarchyBase()` → 同步读取栈顶 base（dialogue / menu / file.open 入队时用）
 - `HierarchyScope({ kind, base?, children })` → 为子树提供叠加 base
-- `psOverlayRoot()` → `#ps-overlay-root`（`temporary-window` / info tooltip portal 挂载点）
+- `psOverlayRoot()` → `#ps-overlay-root`（secondary / temporary / info tooltip portal 挂载点）
+- `portalSecondaryModal(hierarchyBase, content)` → portal 到 `#ps-overlay-root` 并包 `HierarchyScope kind='secondary'`
 
-浮层必须 portal 到 `#ps-overlay-root`，否则会被相邻 grid part 的 stacking context 遮挡。
+浮层必须 portal 到 `#ps-overlay-root`，否则会被相邻 grid part 的 stacking context 或 chat dock（z=21）遮挡。

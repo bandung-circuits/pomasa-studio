@@ -116,7 +116,8 @@ function CreateMas(props) {
 
   if (props.open === false) return null
 
-  return h('div', Object.assign({}, psHierarchyBackdropProps('secondary', 0), { onClick: props.onCancel }),
+  return portalSecondaryModal(0,
+    h('div', Object.assign({}, psHierarchyBackdropProps('secondary', 0), { onClick: props.onCancel }),
     h('div', { className: 'ps-modal ps-modal-wide', onClick: (e) => e.stopPropagation() },
       h('div', { className: 'ps-modal-head' },
         h('span', { style: { fontWeight: 600, fontSize: 15 } }, t('new.mas')),
@@ -178,5 +179,5 @@ function CreateMas(props) {
         patternsOpen ? h(PatternsModal, { patterns, onClose: () => setPatternsOpen(false), onApply: (next) => { setPatterns(next); setPatternsOpen(false) } }) : null,
       ),
     ),
-  )
+  ))
 }

@@ -387,48 +387,26 @@ export const CSS = `
 .ps-node-meta { font-size: 12px; color: var(--dsw-alias-label-caption); margin-bottom: 8px; }
 .ps-node-actions { display: flex; flex-wrap: wrap; gap: 4px; }
 
-/* ---------- agent chat (ConversationRoot-like) ---------- */
-.ps-part-body-chat { overflow: hidden; display: flex; flex-direction: column; }
-.ps-part-body-chat > .ps-scroll-frame { min-height: 0; }
-.ps-part-body-chat > .ps-chat-composer-seat { min-height: 0; }
-.ps-chat-head {
-  flex: none; display: flex; align-items: center; gap: 8px; justify-content: space-between;
-  padding: 8px 12px 6px; border-bottom: 1px solid var(--dsw-alias-border-l2);
-  background: var(--dsw-alias-bg-base);
+/* ---------- agent chat (native ConversationRoot dock) ---------- */
+.ps-part-body-chat {
+  overflow: hidden; display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0;
 }
-.ps-chat-title { font-size: 13.5px; font-weight: 600; }
-.ps-chat-msgs {
-  flex: none; padding: 8px 12px 12px;
+.ps-native-conversation-host {
+  flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; overflow: hidden;
+}
+.ps-native-conversation-seat { flex: 1; min-height: 0; min-width: 0; }
+.ps-native-conversation-placeholder { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+body.ps-native-conversation-docked [data-slot="conversation.session.header"] { display: none !important; }
+.ps-native-conversation-root { overflow: hidden !important; display: flex !important; flex-direction: column !important; }
+.ps-native-conversation-root[data-phase="active"] { overflow: hidden !important; }
+.ps-native-conversation-root [data-conversation-scroll] { flex: 1 !important; min-height: 0 !important; }
+.ps-native-conversation-root [data-composer-seat] { flex: none !important; }
+.ps-native-conversation-root .composerStack { max-width: 100%; }
+body.ps-native-conversation-docked.ps-native-composer-locked [data-composer-seat] {
+  pointer-events: none;
+  opacity: 0.55;
 }
 .ps-chat-empty { color: var(--dsw-alias-label-dimmed); font-size: 13px; padding: 12px; }
-.ps-chat-msg { margin-bottom: 10px; max-width: 100%; }
-.ps-chat-msg.user .ps-chat-text { background: var(--dsw-alias-bg-layer-3, var(--dsw-alias-interactive-bg-hover)); }
-.ps-chat-role { font-size: 11px; color: var(--dsw-alias-label-caption); margin-bottom: 2px; }
-.ps-chat-text {
-  font-size: 13.5px; line-height: 1.5; padding: 6px 8px; border-radius: 8px;
-  white-space: pre-wrap; word-break: break-word;
-}
-.ps-chat-composer-seat {
-  flex: none; flex-shrink: 0;
-  background: var(--dsw-alias-bg-base);
-}
-.ps-chat-compose { padding: 0 12px 12px; }
-.ps-chat-compose-card {
-  box-sizing: border-box; display: flex; flex-direction: column; gap: 10px;
-  width: 100%; padding: 10px 12px 10px;
-  border: 1px solid var(--dsw-alias-border-l2-darkmode-thin, var(--dsw-alias-border-l2));
-  border-radius: 22px; background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-2));
-  box-shadow: var(--dsw-shadow-lv2, 0 2px 8px rgba(0, 0, 0, 0.06));
-}
-.ps-chat-compose-input {
-  width: 100%; min-height: 56px; max-height: 160px; resize: none;
-  border: none; background: transparent; outline: none;
-  font-size: 14px; line-height: 1.5; color: var(--dsw-alias-label-primary);
-  font-family: inherit;
-}
-.ps-chat-compose-input::placeholder { color: var(--dsw-alias-label-dimmed); }
-.ps-chat-compose-input:disabled { opacity: 0.55; cursor: not-allowed; }
-.ps-chat-compose-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; min-height: 32px; }
 
 /* shell.overlay workbench panel — bounded to the center column, the DSH
    sidebar stays visible and clickable underneath (click-through root).
@@ -456,6 +434,11 @@ export const CSS = `
   padding: 0;
 }
 .ps-secondary-body .ps-scroll-frame { flex: 1; min-height: 0; }
+.ps-expand-scroll { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.ps-expand-stack { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.ps-expand-canvas { flex: 1 1 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+.ps-expand-details { flex: 1 1 0; min-height: 120px; overflow: hidden; display: flex; flex-direction: column; border-top: 1px solid var(--dsw-alias-border-l2); }
+.ps-expand-details .ps-scroll-frame { flex: 1; min-height: 0; }
 .ps-artifact-body { max-height: 72vh; }
 .ps-modal-head { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--dsw-alias-border-l2); }
 .ps-modal-body { padding: 20px 26px; overflow: auto; line-height: 1.7; font-size: 14.5px; }
@@ -466,7 +449,7 @@ export const CSS = `
 .ps-pre { background: var(--dsw-alias-bg-layer-2); border: 1px solid var(--dsw-alias-border-l2); border-radius: 10px; padding: 14px; overflow: auto; font-size: 13px; line-height: 1.6; }
 
 /* ---------- artifact cards ---------- */
-.ps-artlist { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr)); min-width: 0; }
+.ps-artlist { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr)); min-width: 0; margin: 12px; }
 .ps-art { cursor: pointer; transition: border-color 150ms, box-shadow 150ms; min-width: 0; overflow: hidden; }
 .ps-art:hover { border-color: var(--dsw-alias-border-l3); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06); }
 .ps-art.on { border-color: var(--dsw-alias-brand-primary); }
@@ -760,7 +743,7 @@ export const CSS = `
 .ps-temp-win-range { width: 100%; accent-color: var(--dsw-alias-brand-primary); }
 .ps-temp-win-pct { font-size: 12px; color: var(--dsw-alias-label-caption); text-align: right; }
 .ps-part-body { flex: 1; min-height: 0; min-width: 0; overflow: hidden; display: flex; flex-direction: column; }
-.ps-part-body > .ps-scroll-frame { flex: 1; min-height: 0; min-width: 0; margin: 12px 0 12px 12px;}
+.ps-part-body > .ps-scroll-frame { flex: 1; min-height: 0; min-width: 0; }
 
 .ps-menu {
   position: fixed; min-width: 168px; max-width: 280px;

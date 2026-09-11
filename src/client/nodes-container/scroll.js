@@ -1,4 +1,4 @@
-// Nodes secondary scroll — canvas zoom wrap registered for expand window.
+// Nodes secondary scroll — pass-through flex column; canvas wrap only on the canvas cell.
 
 function NodesContainerScrollWrap(props) {
   const scale = usePartScrollScale('nodes-container', true)
@@ -10,7 +10,11 @@ function NodesContainerScrollWrap(props) {
   return h(ScrollBox, { mode: 'canvas', scale }, content)
 }
 
+function NodesExpandSecondaryWrap(props) {
+  return h('div', { className: 'ps-expand-scroll' }, props.children)
+}
+
 registerSecondaryScroll({
   windowId: 'nodes-container',
-  Wrap: NodesContainerScrollWrap,
+  Wrap: NodesExpandSecondaryWrap,
 })

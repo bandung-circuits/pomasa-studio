@@ -123,12 +123,11 @@ function registerStudioSlots() {
     region: 'work.center',
     order: 0,
     title: () => t('nodes.title'),
-    description: () => t('nodes.canvas.hint'),
     partClassName: 'ps-part-nodes',
     render: () => h(NodesContainer, null),
   })
   layoutSlots.register({ id: 'subagent-details', region: 'work.center', order: 1, title: currentStageTitle, render: () => h(SubagentDetailsPanel, null) })
   layoutSlots.register({ id: 'operation-controller', region: 'work.right', order: 0, title: () => t('run.control'), render: () => h(OperationController, null) })
-  layoutSlots.register({ id: 'agent-chat', region: 'work.right', order: 1, title: () => t('chat.title'), bodyClassName: 'ps-part-body-chat', render: () => h(AgentChatPanel, { sessionDriver: getSessionDriver() }) })
+  layoutSlots.register({ id: 'agent-chat', region: 'work.right', order: 1, title: () => t('chat.title'), bodyClassName: 'ps-part-body-chat', render: () => h(AgentChatPanel, null) })
   layoutSlots.register({ id: 'agent-processing-bar', region: 'work.bottom', order: 0, title: null, render: () => h(AgentProcessingBar, { hiddenWhenDone: true }) })
 }

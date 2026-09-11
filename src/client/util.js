@@ -61,6 +61,43 @@ const sessionDriverRef = { current: null }
 function setSessionDriver(d) { sessionDriverRef.current = d }
 function getSessionDriver() { return sessionDriverRef.current }
 
+const sessionsServiceRef = { current: null }
+function setSessionsService(s) { sessionsServiceRef.current = s }
+function getSessionsService() { return sessionsServiceRef.current }
+
+const workbenchPanelRef = { current: null }
+function setWorkbenchPanel(p) { workbenchPanelRef.current = p }
+
+function useWorkbenchOpen() {
+  const panel = workbenchPanelRef.current
+  if (!panel) return false
+  if (typeof React.useSyncExternalStore === 'function') {
+    return React.useSyncExternalStore(panel.subscribe.bind(panel), () => panel.open)
+  }
+  const [v, setV] = React.useState(panel.open)
+  React.useEffect(() => panel.subscribe(() => setV(panel.open)), [panel])
+  return v
+}
+
+const nodesExpandRef = {
+  open: false,
+  subs: new Set(),
+  emit() { for (const fn of this.subs) fn() },
+  subscribe(fn) { this.subs.add(fn); return () => { this.subs.delete(fn) } },
+  setOpen(v) { this.open = !!v; this.emit() },
+}
+
+function setNodesExpandOpen(v) { nodesExpandRef.setOpen(v) }
+
+function useNodesExpandOpen() {
+  if (typeof React.useSyncExternalStore === 'function') {
+    return React.useSyncExternalStore(nodesExpandRef.subscribe.bind(nodesExpandRef), () => nodesExpandRef.open)
+  }
+  const [v, setV] = React.useState(nodesExpandRef.open)
+  React.useEffect(() => nodesExpandRef.subscribe(() => setV(nodesExpandRef.open)), [])
+  return v
+}
+
 function normalizeChatMessages(rows) {
   const out = []
   for (const m of rows || []) {
