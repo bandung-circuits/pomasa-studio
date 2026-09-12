@@ -214,6 +214,59 @@ test('L1 units: multi mode + declared/enumerated', () => {
   assert.equal(kenya.planned, true)
 })
 
+test('L1 units: overlapping declared + enumerated index dedupe to one row', () => {
+  // POMASA-generated multi MASes seed pomasa.json work.units AND units.json
+  // with the same list. Units must still appear once in the selector.
+  const home = tempHome()
+  const root = path.join(home, 'gs')
+  const multi = {
+    schema_version: 'obv-1',
+    mas_id: 'gs',
+    work: {
+      mode: 'multi',
+      dimensions: ['country'],
+      units: ['nepal', 'india', 'thailand'],
+      units_index: 'units.json',
+      unit_layout: 'workspace/{country}',
+    },
+    stages: [],
+  }
+  fs.mkdirSync(path.join(root, 'workspace'), { recursive: true })
+  fs.writeFileSync(path.join(root, 'pomasa.json'), JSON.stringify(multi))
+  fs.writeFileSync(path.join(root, 'units.json'), JSON.stringify(['nepal', 'india', 'thailand']))
+  const d = loadDescriptor(path.join(home, 'gs'))
+  const listing = unitListing({ pomasaHome: home }, d, 'gs')
+  const keys = listing.map((u) => u.key)
+  assert.deepEqual(keys, ['nepal', 'india', 'thailand'])
+  assert.equal(new Set(keys).size, keys.length)
+  listing.forEach((u) => assert.equal(u.source, 'declared')) // declared wins
+})
+
+test('L1 units: enumerated fills gaps not in declared list', () => {
+  const home = tempHome()
+  const root = path.join(home, 'mix')
+  const multi = {
+    schema_version: 'obv-1',
+    mas_id: 'mix',
+    work: {
+      mode: 'multi',
+      dimensions: ['country'],
+      units: ['nepal'],
+      units_index: 'units.json',
+      unit_layout: 'workspace/{country}',
+    },
+    stages: [],
+  }
+  fs.mkdirSync(path.join(root, 'workspace'), { recursive: true })
+  fs.writeFileSync(path.join(root, 'pomasa.json'), JSON.stringify(multi))
+  fs.writeFileSync(path.join(root, 'units.json'), JSON.stringify(['nepal', 'bangladesh']))
+  const d = loadDescriptor(path.join(home, 'mix'))
+  const listing = unitListing({ pomasaHome: home }, d, 'mix')
+  const keys = listing.map((u) => u.key)
+  assert.deepEqual(keys, ['nepal', 'bangladesh'])
+  assert.deepEqual(listing.map((u) => u.source), ['declared', 'enumerated'])
+})
+
 test('L1 state: aggregates run.json timeline and index instances', () => {
   const home = tempHome()
   writeMas(home, 'demo', SINGLE_DESCRIPTOR, { run: SINGLE_RUN, files: SINGLE_FILES })

@@ -18,9 +18,18 @@ export function unitRoots(config, descriptor, masId) {
 /** Units known ahead (declared or enumerated), even if not yet run. */
 export function plannedUnits(config, descriptor, masId) {
   if (descriptor.work.mode === 'single') return []
+  const seen = new Set()
   const out = []
+  const push = (key, source) => {
+    // A key may be declared in both pomasa.json work.units and the units
+    // index (the generator seeds both with the same list). Dedupe so the
+    // selector never shows a unit twice; declared wins over enumerated.
+    if (typeof key !== 'string' || seen.has(key)) return
+    seen.add(key)
+    out.push({ key, source })
+  }
   if (Array.isArray(descriptor.work.units)) {
-    for (const k of descriptor.work.units) out.push({ key: k, source: 'declared' })
+    for (const k of descriptor.work.units) push(k, 'declared')
   }
   if (descriptor.work.unitsIndex) {
     const file = path.join(masDir(pomasaHome(config), masId), descriptor.work.unitsIndex)
@@ -29,8 +38,7 @@ export function plannedUnits(config, descriptor, masId) {
         const raw = JSON.parse(fs.readFileSync(file, 'utf8'))
         const list = Array.isArray(raw) ? raw : (raw.units ?? raw.entries ?? [])
         for (const u of list) {
-          const key = typeof u === 'string' ? u : (u.key ?? u.id)
-          if (typeof key === 'string') out.push({ key, source: 'enumerated' })
+          push(typeof u === 'string' ? u : (u.key ?? u.id), 'enumerated')
         }
       } catch {
         /* unreadable enumeration is not fatal */
