@@ -1,100 +1,58 @@
-// Minimal markdown renderer for the artifact viewer.
-// Outputs React elements only — never innerHTML — so artifact content cannot inject markup.
-// Supports: fenced code, headings 1-4, hr, blockquote, lists, simple tables, paragraphs,
-// and inline **bold** / *em* / `code` / [link](url).
-function renderMarkdown(md) {
-  if (typeof md !== 'string') return []
-  const lines = md.replace(/\r\n/g, '\n').split('\n')
-  const nodes = []
-  let i = 0
-  while (i < lines.length) {
-    const line = lines[i]
-    if (!line.trim()) { i += 1; continue }
-    const fence = line.match(/^```(\w*)\s*$/)
-    if (fence) {
-      const lang = fence[1]
-      const buf = []
-      i += 1
-      while (i < lines.length && !/^```/.test(lines[i])) { buf.push(lines[i]); i += 1 }
-      i += 1
-      nodes.push(h('pre', { key: nodes.length, className: 'ps-pre' }, h('code', { key: 'c', className: lang ? 'lang-' + lang : '' }, buf.join('\n'))))
-      continue
+// Markdown rendering for the artifact viewer, via markdown-it +
+// markdown-it-footnote (the same engine Auctor ships). scripts/md-api.mjs
+// is esbuild-bundled into the client as the __psMd global by
+// scripts/bundle-client.mjs; html: false keeps raw HTML escaped, so artifact
+// content cannot inject markup. Footnotes render into a labelled block.
+let _md = null
+let _hidx = 0
+function getMd() {
+  if (_md) return _md
+  if (typeof __psMd === 'undefined' || !__psMd.createMarkdown) return null
+  const md = __psMd.createMarkdown()
+  const esc = (s) => md.utils.escapeHtml(String(s))
+  // Headings 1–4 carry a running index (data-h) so a later TOC can jump,
+  // mirroring Auctor.
+  md.renderer.rules.heading_open = (tokens, idx) => {
+    const tok = tokens[idx]
+    const level = Number(tok.tag.slice(1)) || 1
+    if (level <= 4) {
+      _hidx += 1
+      return `<${tok.tag} data-h="h${_hidx}">`
     }
-    const hm = line.match(/^(#{1,4})\s+(.*)$/)
-    if (hm) {
-      const level = hm[1].length
-      nodes.push(h('h' + level, { key: nodes.length }, inline(hm[2].trim())))
-      i += 1
-      continue
-    }
-    if (/^\s*(-{3,}|\*{3,})\s*$/.test(line)) { nodes.push(h('hr', { key: nodes.length })); i += 1; continue }
-    if (/^>\s?/.test(line)) {
-      const buf = []
-      while (i < lines.length && /^>\s?/.test(lines[i])) { buf.push(lines[i].replace(/^>\s?/, '')); i += 1 }
-      nodes.push(h('blockquote', { key: nodes.length }, inline(buf.join('\n'))))
-      continue
-    }
-    const ordered = /^\s*\d+\.\s+/
-    if (/^\s*[-*]\s+/.test(line) || ordered.test(line)) {
-      const items = []
-      while (i < lines.length && (/^\s*[-*]\s+/.test(lines[i]) || ordered.test(lines[i]))) {
-        items.push(inline(ordered.test(lines[i]) ? lines[i].replace(ordered, '') : lines[i].replace(/^\s*[-*]\s+/, '')))
-        i += 1
-      }
-      nodes.push(h(ordered.test(line) ? 'ol' : 'ul', { key: nodes.length }, items.map((it, idx) => h('li', { key: idx }, it))))
-      continue
-    }
-    if (line.includes('|') && lines[i + 1] && /^\s*\|?[\s:| -]+\|?\s*$/.test(lines[i + 1]) && lines[i + 1].includes('|')) {
-      const rows = []
-      while (i < lines.length && lines[i].includes('|')) {
-        const cells = lines[i].split('|')
-        if (cells[0].trim() === '') cells.shift()
-        if (cells[cells.length - 1].trim() === '') cells.pop()
-        rows.push(cells.map((c) => c.trim()))
-        i += 1
-      }
-      const header = rows[0] || []
-      // Drop the GFM separator row (| --- | :--: |) if present
-      let body = rows.slice(1)
-      if (rows[1] && rows[1].every((c) => /^:?-+:?$/.test(c))) body = rows.slice(2)
-      nodes.push(
-        h('table', { key: nodes.length },
-          h('thead', { key: 'h' }, h('tr', { key: 'r' }, header.map((c, idx) => h('th', { key: idx }, inline(c))))),
-          h('tbody', { key: 'b' }, body.map((row, ri) => h('tr', { key: ri }, row.map((c, ci) => h('td', { key: ci }, inline(c)))))),
-        ),
-      )
-      continue
-    }
-    const buf = [line]
-    i += 1
-    while (i < lines.length &&
-      lines[i].trim() !== '' &&
-      !/^```/.test(lines[i]) &&
-      !/^#{1,4}\s/.test(lines[i]) &&
-      !/^\s*[-*]\s+/.test(lines[i]) &&
-      !/^\s*\d+\.\s+/.test(lines[i]) &&
-      !/^>\s?/.test(lines[i])) {
-      buf.push(lines[i])
-      i += 1
-    }
-    nodes.push(h('p', { key: nodes.length }, inline(buf.join('\n'))))
+    return `<${tok.tag}>`
   }
-  return nodes
+  // Fenced code keeps the Studio pre/code shapes (ps-pre / lang-*).
+  md.renderer.rules.fence = (tokens, idx) => {
+    const tok = tokens[idx]
+    const lang = tok.info ? tok.info.trim().split(/\s+/)[0] : ''
+    return '<pre class="ps-pre"><code' + (lang ? ' class="lang-' + lang + '"' : '') + '>' + esc(tok.content) + '</code></pre>\n'
+  }
+  // Inline code keeps the ps-code chip shape.
+  md.renderer.rules.code_inline = (tokens, idx) => '<code class="ps-code">' + esc(tokens[idx].content) + '</code>'
+  // Links open in a new tab, same as the previous renderer.
+  md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
+    tokens[idx].attrSet('target', '_blank')
+    tokens[idx].attrSet('rel', 'noreferrer')
+    return self.renderToken(tokens, idx, options)
+  }
+  // The footnote block gets a labelled heading (markdown-it-footnote's default
+  // <hr class="footnotes-sep"> is dropped in favour of the titled block).
+  md.renderer.rules.footnote_block_open = () =>
+    '<div class="ps-md-footnotes-title">' + esc(t('footnotes')) + '</div>\n<section class="footnotes">\n<ol class="footnotes-list">'
+  md.renderer.rules.footnote_block_close = () => '</ol>\n</section>\n'
+  _md = md
+  return md
 }
 
-const INLINE_RE = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g
-function inline(text) {
-  const parts = String(text).split(INLINE_RE)
-  const out = []
-  for (let idx = 0; idx < parts.length; idx += 1) {
-    const p = parts[idx]
-    if (!p) continue
-    if (/^\*\*[^*]+\*\*$/.test(p)) { out.push(h('strong', { key: idx }, p.slice(2, -2))); continue }
-    if (/^`[^`]+`$/.test(p)) { out.push(h('code', { key: idx, className: 'ps-code' }, p.slice(1, -1))); continue }
-    if (/^\*[^*]+\*$/.test(p)) { out.push(h('em', { key: idx }, p.slice(1, -1))); continue }
-    const lm = p.match(/^\[([^\]]+)\]\(([^)]+)\)$/)
-    if (lm) { out.push(h('a', { key: idx, href: lm[2], target: '_blank', rel: 'noreferrer' }, lm[1])); continue }
-    out.push(p)
+function renderMarkdown(md) {
+  const engine = getMd()
+  let html
+  if (engine) {
+    _hidx = 0
+    html = engine.render(String(md == null ? '' : md))
+  } else {
+    // No engine available (unbundled dev): render as escaped plain text.
+    html = '<p>' + String(md == null ? '' : md).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p>'
   }
-  return out
+  return h('div', { className: 'ps-md', dangerouslySetInnerHTML: { __html: html } })
 }

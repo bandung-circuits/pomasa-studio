@@ -778,10 +778,18 @@ test('L2 client bundle: loads and registers shell.overlay + dock entry', () => {
   assert.match(src, /const CSS = `/)
   assert.match(src, /@media \(max-width: 820px\)/)
   assert.match(src, /\.ps-shell-panel/)
+  // markdown-it is esbuild-inlined as the __psMd engine; the hand-rolled
+  // renderer (INLINE_RE tokens) must be gone.
+  assert.match(src, /__psMd/)
+  assert.match(src, /footnote_block_open/)
+  assert.doesNotMatch(src, /INLINE_RE/)
   const registrations = []
   const dockApps = []
   const loaded = []
   const sandbox = {
+    // Real-browser globals the markdown-it bundle needs at module init:
+    // entities/decodes its tables via atob/btoa (absent from a bare vm).
+    atob, btoa,
     window: {
       __dshAppDock__: {
         register(def) { dockApps.push(def); return true },
@@ -857,7 +865,18 @@ test('L2 client renders with real React (guards positional-children bugs)', asyn
   }
   const src = buildClientSource(['api.js', 'md.js', 'i18n.js', 'meme.js', 'components.js', 'pages.js']) +
     '\nglobalThis.__ps = { MasList, CreateMas, MasDetail, renderMarkdown, psEmpty, stageContractCards, __lang: langStore };'
-  const ctx = vm.createContext({ React: react.React, window: {}, URL, setTimeout, clearTimeout })
+  // The real engine markdown-it bundles into the client: mirrors
+  // scripts/md-api.mjs so the SSR path exercises production rendering.
+  const MarkdownIt = (await import('markdown-it')).default
+  const mditFootnote = (await import('markdown-it-footnote')).default
+  const __psMd = {
+    createMarkdown() {
+      const md = new MarkdownIt({ html: false, linkify: false, typographer: false })
+      md.use(mditFootnote)
+      return md
+    },
+  }
+  const ctx = vm.createContext({ React: react.React, __psMd, window: {}, URL, setTimeout, clearTimeout })
   vm.runInContext('var h = React.createElement;\n' + src, ctx)
   const ps = ctx.__ps
   const api = { listMas: () => Promise.resolve({ ok: true, mas: [] }) }
@@ -887,13 +906,26 @@ test('L2 client renders with real React (guards positional-children bugs)', asyn
   const mdHtml = react.SSR.renderToString(react.React.createElement('div', { key: 'd' },
     ps.renderMarkdown('# 标题\n\n**加粗** `代码` [链接](https://example.com)\n\n- a\n- b\n\n```js\nvar x = 1\n```\n\n| A | B |\n|---|---|\n| 1 | 2 |'),
   ))
-  assert.match(mdHtml, /<h1>标题<\/h1>/)
+  // markdown-it output — headings carry data-h, links open in a new tab,
+  // fenced code keeps ps-pre / lang-* shapes
+  assert.match(mdHtml, /<h1 data-h="h1">标题<\/h1>/)
   assert.match(mdHtml, /<strong>加粗<\/strong>/)
-  assert.match(mdHtml, /<a href="https:\/\/example.com"/)
-  assert.match(mdHtml, /<ul>.*<li>a<\/li>/m)
-  assert.match(mdHtml, /<pre class="ps-pre">/)
-  assert.match(mdHtml, /<table>.*<th>A<\/th>/m)
+  assert.match(mdHtml, /<a href="https:\/\/example.com" target="_blank" rel="noreferrer">链接<\/a>/)
+  assert.match(mdHtml, /<li>a<\/li>/)
+  assert.match(mdHtml, /<li>b<\/li>/)
+  assert.match(mdHtml, /<pre class="ps-pre"><code class="lang-js">var x = 1\n<\/code><\/pre>/)
+  assert.match(mdHtml, /<th>A<\/th>/)
   assert.match(mdHtml, /<th>B<\/th>/)
+
+  // Footnote syntax renders into a labelled block (the reason the renderer
+  // moved from the hand-rolled one to markdown-it).
+  const fnHtml = react.SSR.renderToString(react.React.createElement('div', { key: 'n' },
+    ps.renderMarkdown('Point with a note[^1].\n\n[^1]: The note body.\n'),
+  ))
+  assert.match(fnHtml, /<sup class="footnote-ref"/)
+  assert.match(fnHtml, /<div class="ps-md-footnotes-title">脚注<\/div>/)
+  assert.match(fnHtml, /<section class="footnotes">/)
+  assert.match(fnHtml, /The note body\./)
 
   // Regression: psEmpty invoked via createElement without a hint must not
   // render the empty-object phantom React passes as the 2nd arg (error #31).

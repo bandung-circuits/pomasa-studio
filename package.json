@@ -15,6 +15,7 @@
     "skill/",
     "pomasa-home/",
     "scripts/bundle-client.mjs",
+    "scripts/md-api.mjs",
     "cordis.patch.yml",
     "README.md"
   ],
@@ -34,7 +35,7 @@
   },
   "scripts": {
     "build:client": "node scripts/bundle-client.mjs",
-    "verify": "node verify.mjs",
+    "verify": "node scripts/bundle-client.mjs && node verify.mjs",
     "test:transport": "bash scripts/transport-smoke.sh",
     "test:pack": "bash scripts/package-integrity.sh",
     "test:install": "bash scripts/install-smoke.sh",
@@ -44,7 +45,8 @@
     "prepare": "node scripts/bundle-client.mjs"
   },
   "devDependencies": {
-    "@playwright/test": "^1.62.1"
+    "@playwright/test": "^1.62.1",
+    "esbuild": "^0.28.2"
   },
   "license": "MIT",
   "repository": {

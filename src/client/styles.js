@@ -160,6 +160,29 @@ export const CSS = `
 .ps-viewer-body th, .ps-viewer-body td { border: 1px solid var(--dsw-alias-border-l2); padding: 6px 12px; font-size: 13.5px; }
 .ps-viewer-body th { background: var(--dsw-alias-bg-layer-2); font-weight: 600; }
 
+/* ---------- markdown (renderMarkdown → .ps-md, markdown-it output) ---------- */
+.ps-md { font-size: 14.5px; line-height: 1.7; color: var(--dsw-alias-label-primary, #1f2329); }
+.ps-md h1, .ps-md h2, .ps-md h3, .ps-md h4, .ps-md h5, .ps-md h6 { line-height: 1.3; margin: 1.2em 0 0.5em; font-weight: 600; }
+.ps-md h1 { font-size: 21px; } .ps-md h2 { font-size: 18px; } .ps-md h3 { font-size: 15px; } .ps-md h4 { font-size: 14px; } .ps-md h5, .ps-md h6 { font-size: 13px; }
+.ps-md p { margin: 0 0 0.9em; }
+.ps-md ul, .ps-md ol { margin: 0 0 0.9em; padding-left: 22px; }
+.ps-md li { margin: 3px 0; }
+.ps-md a { color: var(--dsw-alias-state-business-primary, #4f7cff); }
+.ps-md hr { border: none; border-top: 1px solid var(--dsw-alias-border-l2); margin: 1.2em 0; }
+.ps-md blockquote { margin: 0 0 0.9em; padding: 4px 16px; border-left: 3px solid var(--dsw-alias-border-l3); color: var(--dsw-alias-label-dimmed); }
+.ps-md img { max-width: 100%; }
+.ps-md table { border-collapse: collapse; margin: 0 0 0.9em; }
+.ps-md th, .ps-md td { border: 1px solid var(--dsw-alias-border-l2); padding: 6px 12px; font-size: 13.5px; text-align: left; }
+.ps-md th { background: var(--dsw-alias-bg-layer-2); font-weight: 600; }
+/* markdown-it-footnote 输出 */
+.ps-md-footnotes-title { font-size: 12px; font-weight: 650; letter-spacing: 0.05em; text-transform: uppercase; color: var(--dsw-alias-label-caption, #999); margin-top: 22px; border-top: 1px solid var(--dsw-alias-border-l2); padding-top: 10px; }
+.ps-md .footnotes { margin-top: 4px; }
+.ps-md .footnotes-list { margin: 4px 0 0 22px; font-size: 13px; color: var(--dsw-alias-label-secondary, #666); }
+.ps-md .footnote-item { margin: 4px 0; }
+.ps-md .footnote-ref { font-size: 11px; font-weight: 600; color: var(--dsw-alias-state-business-primary, #4f7cff); margin: 0 1px; }
+.ps-md .footnote-ref a { text-decoration: none; color: inherit; }
+.ps-md .footnote-backref { text-decoration: none; color: var(--dsw-alias-label-caption, #999); font-size: 12px; margin-left: 4px; }
+
 /* ---------- log panel ---------- */
 .ps-log-panel { border: 1px solid var(--dsw-alias-border-l2); border-radius: 12px; background: var(--dsw-alias-bg-layer-1); overflow: hidden; }
 .ps-log-head { display: flex; align-items: center; gap: 10px; padding: 12px 18px; cursor: pointer; user-select: none; font-size: 14px; font-weight: 550; }
