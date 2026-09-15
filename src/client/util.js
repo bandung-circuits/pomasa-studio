@@ -68,6 +68,11 @@ function getSessionsService() { return sessionsServiceRef.current }
 const workbenchPanelRef = { current: null }
 function setWorkbenchPanel(p) { workbenchPanelRef.current = p }
 
+function closeWorkbenchPanel() {
+  const panel = workbenchPanelRef.current
+  if (panel && typeof panel.close === 'function') panel.close()
+}
+
 function useWorkbenchOpen() {
   const panel = workbenchPanelRef.current
   if (!panel) return false

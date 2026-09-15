@@ -762,6 +762,7 @@ body.ps-native-conversation-docked.ps-native-composer-locked [data-composer-seat
 /* ================= boot + work layouts (phase 1) ================= */
 .ps-layout-boot, .ps-layout-work { display: flex; flex-direction: column; height: 100%; width: 100%; min-height: 0; min-width: 0; overflow: hidden; }
 .ps-title-bar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-base); flex: none; }
+.ps-title-close-btn { margin-left: 2px; }
 .ps-title-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .ps-title-mas { min-width: 0; }
 .ps-title-name { font-size: 15px; font-weight: 650; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

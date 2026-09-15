@@ -1,11 +1,21 @@
 // Title bars for boot and work layouts — emit actions, read locators/task-manager.
 
+function StudioCloseBtn() {
+  return h(psIconBtn, {
+    icon: 'close',
+    className: 'ps-title-close-btn',
+    onClick: () => closeWorkbenchPanel(),
+    title: t('launcher.close'),
+  })
+}
+
 function BootTitleBarSlot() {
   return h('div', { className: 'ps-title-bar' },
     h('div', { className: 'ps-title-left' }, h(BootSign, null)),
     h('span', { className: 'spacer', style: { flex: 1 } }),
     h(psBtn, { primary: true, style: { padding: '5px 12px', fontSize: 13.5 }, onClick: () => actionBus.emit('mas.create', {}) }, t('new.btn')),
     h(psIconBtn, { icon: 'settings', onClick: () => actionBus.emit('settings.open', {}), title: t('settings.title') }),
+    h(StudioCloseBtn, null),
   )
 }
 
@@ -28,6 +38,7 @@ function WorkTitleBarSlot() {
     h('span', { className: 'spacer', style: { flex: 1 } }),
     h(StudioModeSwitchBtn, null),
     h(psIconBtn, { icon: 'settings', onClick: () => actionBus.emit('settings.open', {}), title: t('settings.title') }),
+    h(StudioCloseBtn, null),
   )
 }
 
