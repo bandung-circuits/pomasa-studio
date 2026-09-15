@@ -61,7 +61,12 @@ grep -q 'pomasa-studio' "$DSH_HOME/profiles/web/package.json" \
   || { echo "FAIL: profile manifest does not list pomasa-studio" >&2; exit 1; }
 
 # --- boot and assert -------------------------------------------------------
-dsh --profile web --no-open --port "$PORT" >"$BASE/dsh.log" 2>&1 &
+# --no-open only exists on newer dsh builds; add it when supported.
+NO_OPEN=()
+if dsh --profile web --help 2>&1 | grep -q -- '--no-open'; then
+  NO_OPEN=(--no-open)
+fi
+dsh --profile web "${NO_OPEN[@]}" --port "$PORT" >"$BASE/dsh.log" 2>&1 &
 DPID=$!
 trap 'kill "$DPID" 2>/dev/null || true; rm -rf "$BASE"' EXIT
 
