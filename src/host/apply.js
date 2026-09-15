@@ -6,6 +6,7 @@ import { bootstrapRuntime } from '../runtime/index.js'
 import { loadMcpServers } from './mcp-loader.js'
 import { MASA_MEME } from '../client/meme.js'
 import { API_BASE } from './http.js'
+import { createRegistryStore } from './MAS-manager/registry.js'
 import { createSessionRegistry } from './session-registry.js'
 import { createWorkspaceService } from './workspace.js'
 import { createMasCreator } from './MAS-creator/create.js'
@@ -55,19 +56,20 @@ export function apply(ctx, config = {}) {
 
   const home = () => pomasaHome(config)
   const gens = ensureSkill(config)
-  const sessions = createSessionRegistry(ctx, config)
-  const workspace = createWorkspaceService(ctx, config)
+  const registry = createRegistryStore(config)
+  const sessions = createSessionRegistry(ctx, config, registry)
+  const workspace = createWorkspaceService(ctx, config, registry)
   workspace.ensurePomasaWorkspace().catch(() => {})
   bootstrapRuntime(config)
 
-  const creator = createMasCreator({ config, home, agentLoop, gens, sessions })
+  const creator = createMasCreator({ config, home, agentLoop, gens, sessions, registry })
   sessions.bindAgentDisposed(creator.isGenerationComplete)
 
-  const subMgr = createSubagentManager(config, sessions, home)
-  const agentCreator = createAgentCreator(ctx, { workspace, config })
-  const runner = createTaskRunner({ config, home, sessions, subMgr, agentCreator })
+  const subMgr = createSubagentManager(config, sessions, home, registry)
+  const agentCreator = createAgentCreator(ctx, { workspace, config, registry })
+  const runner = createTaskRunner({ config, home, sessions, subMgr, agentCreator, registry })
 
-  const catalog = createCatalog({ config, home, sessions, creator, runner, subMgr, agentCreator, revealInFileManager: config.revealInFileManager })
+  const catalog = createCatalog({ config, home, sessions, creator, runner, subMgr, agentCreator, revealInFileManager: config.revealInFileManager, registry })
   const { handleApi } = catalog
 
   const disposers = ROUTES.map((r) =>

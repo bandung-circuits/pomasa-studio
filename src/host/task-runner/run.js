@@ -2,7 +2,6 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { masDir } from '../paths/index.js'
 import { loadDescriptor } from '../data/descriptor.js'
-import { loadRegistry } from '../MAS-manager/registry.js'
 import {
   createTaskDir,
   resolveTaskRoot,
@@ -13,7 +12,7 @@ import { promptMessage } from '../http.js'
 import { sessionRunKey } from '../session-registry.js'
 
 export function createTaskRunner(deps) {
-  const { config, home, sessions, subMgr, agentCreator } = deps
+  const { config, home, sessions, subMgr, agentCreator, registry } = deps
   const { runSessions, isAgentAlive, sessionLog } = sessions
 
   function resolveRunTargets(body) {
@@ -44,8 +43,7 @@ export function createTaskRunner(deps) {
       body = { ...body, unit: units[0] }
     }
 
-    const reg = loadRegistry(config)
-    const m = reg.mas.find((x) => x.id === masId) || {}
+    const m = registry.findMas(masId) || {}
     if (m.lastGenSessionId && (await isAgentAlive(m.lastGenSessionId))) {
       return { ok: false, error: 'MAS 正在生成中，生成完成前不能运行' }
     }
@@ -108,9 +106,7 @@ export function createTaskRunner(deps) {
       s.agent.followup(promptMessage(String(body.message || '')))
       return { ok: true }
     }
-    const reg = loadRegistry(config).mas.find((x) => x.id === body.masId) || {}
-    const scope = `${body.unit || DEFAULT_UNIT}|${body.task || body.taskKey || LEGACY_TASK}`
-    const sid = reg.lastRunSessionIds && reg.lastRunSessionIds[scope]
+    const sid = registry.findRunSessionId(body.masId, body.unit || body.unitKey, body.task || body.taskKey)
     if (sid && agentCreator && typeof agentCreator.followup === 'function') {
       const r = agentCreator.followup(sid, body.message)
       if (r.ok) return r
@@ -131,9 +127,9 @@ export function createTaskRunner(deps) {
   async function getRunLog(masId, unitKey, taskKey) {
     const runKey = sessionRunKey(masId, unitKey, taskKey)
     const live = runSessions.get(runKey)
-    const regGuess = loadRegistry(config).mas.find((m) => m.id === masId)
     const sid = (live && live.sessionId)
-      || (regGuess && regGuess.lastRunSessionIds && (regGuess.lastRunSessionIds[`${unitKey}|${taskKey}`] || regGuess.lastRunSessionIds[unitKey]))
+      || registry.findRunSessionId(masId, unitKey, taskKey)
+      || registry.runSessionIds(masId)[unitKey]
       || null
     const log = sid ? await sessionLog(sid) : null
     if (log) return { ok: true, log, events: [] }

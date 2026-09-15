@@ -1,8 +1,7 @@
 import { ensurePomasaHome } from '../runtime/bootstrap.js'
-import { loadRegistry } from './MAS-manager/registry.js'
 import { pomasaHome } from './paths/index.js'
 
-export function createWorkspaceService(ctx, config) {
+export function createWorkspaceService(ctx, config, registry) {
   async function ensureWorkspace(cwd, title) {
     let wr
     try { wr = ctx.workspaceRegistry || ctx.get('workspaceRegistry') } catch { wr = null }
@@ -45,7 +44,7 @@ export function createWorkspaceService(ctx, config) {
       : (typeof ws.insertSessionBefore === 'function' ? () => ws.insertSessionBefore : null)
     if (attach) {
       try {
-        for (const m of loadRegistry(config).mas) {
+        for (const m of registry.load().mas) {
           const ids = [m.lastGenSessionId, ...Object.values(m.lastRunSessionIds || {})].filter(Boolean)
           for (const sid of ids) {
             try { await attach()(sid) } catch { /* stale session id */ }

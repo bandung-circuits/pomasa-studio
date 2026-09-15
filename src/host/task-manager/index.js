@@ -39,7 +39,7 @@ export function createHostTaskManager(deps) {
     if (!descriptor) return { ok: true, generated: false, stages: [] }
     const st = unitState(config, descriptor, masId, unitKey || DEFAULT_UNIT, taskKey || null)
     if (st && st.run && st.run.status === 'running') {
-      const reg = masMgr.loadRegistry(config)
+      const reg = masMgr.loadRegistry()
       const m = reg.mas.find((x) => x.id === masId)
       const ur = m && m.lastRunSessionIds || {}
       const uKey = unitKey || DEFAULT_UNIT

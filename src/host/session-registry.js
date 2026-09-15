@@ -1,11 +1,10 @@
-import { loadRegistry, upsertMas } from './MAS-manager/registry.js'
 import { DEFAULT_UNIT, LEGACY_TASK } from './task-manager/state.js'
 
 export function sessionRunKey(masId, unitKey, taskKey) {
   return `${masId}|${unitKey || DEFAULT_UNIT}|${taskKey || LEGACY_TASK}`
 }
 
-export function createSessionRegistry(ctx, config) {
+export function createSessionRegistry(ctx, config, registry) {
   const genSessions = new Map()
   const runSessions = new Map()
   const sessionOwner = new Map()
@@ -70,7 +69,7 @@ export function createSessionRegistry(ctx, config) {
         if (!genSessions.has(masId)) return
         const generated = isGenerationComplete(masId)
         genSessions.delete(masId)
-        if (!generated) upsertMas(config, { id: masId, status: 'failed' })
+        if (!generated) registry.markGenFailed(masId)
       } else if (owner.runKey) {
         runSessions.delete(owner.runKey)
       }
@@ -84,23 +83,13 @@ export function createSessionRegistry(ctx, config) {
     const sessionId = String(body.sessionId || '')
     if (!sessionId) return { ok: false, code: 400, error: 'sessionId is required' }
     if (kind === 'gen') {
-      upsertMas(config, { id: masId, status: 'generating', lastGenSessionId: sessionId })
+      registry.recordGenSession(masId, sessionId)
     } else {
-      const existing = (loadRegistry(config).mas.find((m) => m.id === masId) || {})
-      const unitKey = String(body.unit || body.unitKey || DEFAULT_UNIT)
-      const taskKey = String(body.task || body.taskKey || LEGACY_TASK)
-      const agentKey = String(body.agentKey || 'orchestrator')
-      const scope = `${unitKey}|${taskKey}`
-      const lastAgentSessionIds = { ...(existing.lastAgentSessionIds || {}) }
-      const agentMap = { ...(lastAgentSessionIds[scope] || {}), [agentKey]: sessionId }
-      lastAgentSessionIds[scope] = agentMap
-      const orchSid = agentMap.orchestrator || (agentKey === 'orchestrator' ? sessionId : (existing.lastRunSessionIds || {})[scope])
-      upsertMas(config, {
-        id: masId,
-        status: 'running',
-        lastRunAt: Date.now(),
-        lastRunSessionIds: { ...(existing.lastRunSessionIds || {}), [scope]: orchSid || sessionId },
-        lastAgentSessionIds,
+      registry.recordRunSession(masId, {
+        unitKey: body.unit || body.unitKey,
+        taskKey: body.task || body.taskKey,
+        agentKey: body.agentKey,
+        sessionId,
       })
     }
     return { ok: true }

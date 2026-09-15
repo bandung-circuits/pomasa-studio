@@ -1,7 +1,6 @@
 import path from 'node:path'
 import { loadDescriptor } from '../data/descriptor.js'
 import { listDeclaredAgents, ORCHESTRATOR_KEY } from '../data/graph.js'
-import { loadRegistry } from '../MAS-manager/registry.js'
 import { masDir } from '../paths/index.js'
 import { DEFAULT_UNIT, LEGACY_TASK } from '../task-manager/state.js'
 
@@ -24,7 +23,7 @@ export function warmPrompt(agent, masRoot, unitRoot) {
 请保持待机，等待编排者（Orchestrator）调度后再执行本阶段任务。不要自行开始工作或在单元根外写入文件。`
 }
 
-export function createSubagentManager(config, sessions, home) {
+export function createSubagentManager(config, sessions, home, registry) {
   const { isAgentAlive, isAgentRegistered, sessionLog } = sessions
   const resolveHome = typeof home === 'function' ? home : () => config.pomasaHome
 
@@ -40,7 +39,7 @@ export function createSubagentManager(config, sessions, home) {
   }
 
   function agentSessions(masId, unitKey, taskKey) {
-    const m = loadRegistry(config).mas.find((x) => x.id === masId)
+    const m = registry.findMas(masId)
     if (!m || !m.lastAgentSessionIds) return {}
     return m.lastAgentSessionIds[runScopeKey(unitKey, taskKey)] || {}
   }

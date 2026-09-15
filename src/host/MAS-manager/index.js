@@ -3,14 +3,13 @@ import path from 'node:path'
 import * as fsx from '../file-system/index.js'
 import { fileManagerLabel } from '../file-system/reveal.js'
 import { loadDescriptor } from '../data/descriptor.js'
-import { loadRegistry, saveRegistry } from './registry.js'
 import { masDir, pomasaHome } from '../paths/index.js'
 
 export function createMasManager(deps) {
-  const { config, home, sessions, creator } = deps
+  const { config, home, sessions, creator, registry } = deps
 
   function isRegistered(masId) {
-    return loadRegistry(config).mas.some((m) => m.id === masId)
+    return registry.load().mas.some((m) => m.id === masId)
   }
 
   function hasMas(masId) {
@@ -20,7 +19,7 @@ export function createMasManager(deps) {
   }
 
   async function listMas() {
-    const reg = loadRegistry(config)
+    const reg = registry.load()
     const list = []
     for (const m of reg.mas) {
       if (!fs.existsSync(masDir(home(), m.id))) continue
@@ -52,15 +51,15 @@ export function createMasManager(deps) {
     } else {
       fsx.markHidden(root, { kind: 'mas', masId })
     }
-    const reg = loadRegistry(config)
+    const reg = registry.load()
     reg.mas = reg.mas.filter((m) => m.id !== masId)
-    saveRegistry(config, reg)
+    registry.save(reg)
     return { ok: true, permanent }
   }
 
   function meta() {
     const sessionsList = []
-    for (const m of loadRegistry(config).mas) {
+    for (const m of registry.load().mas) {
       if (fsx.isHidden(masDir(home(), m.id))) continue
       if (m.lastGenSessionId) sessionsList.push(m.lastGenSessionId)
       for (const sid of Object.values(m.lastRunSessionIds || {})) if (sid) sessionsList.push(sid)
@@ -80,7 +79,6 @@ export function createMasManager(deps) {
     getMas,
     deleteMas,
     meta,
-    loadRegistry,
-    saveRegistry,
+    loadRegistry: () => registry.load(),
   }
 }

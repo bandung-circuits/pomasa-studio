@@ -6,8 +6,8 @@ import { DEFAULT_UNIT, LEGACY_TASK } from './task-manager/state.js'
 import { masDir } from './paths/index.js'
 
 export function createCatalog(deps) {
-  const { config, home, sessions, creator, runner, subMgr, agentCreator, revealInFileManager } = deps
-  const masMgr = createMasManager({ config, home, sessions, creator })
+  const { config, home, sessions, creator, runner, subMgr, agentCreator, revealInFileManager, registry } = deps
+  const masMgr = createMasManager({ config, home, sessions, creator, registry })
   const taskMgr = createHostTaskManager({ config, home, sessions, runner, revealInFileManager })
 
   async function handleApi(req, res) {

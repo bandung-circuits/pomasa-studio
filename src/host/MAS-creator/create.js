@@ -3,12 +3,11 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { masDir } from '../paths/index.js'
 import { loadDescriptor } from '../data/descriptor.js'
-import { loadRegistry, upsertMas } from '../MAS-manager/registry.js'
 import { unitListing, collectRunJsonPaths } from '../task-manager/state.js'
 import { writeUserInput, generationPrompt } from './prompt.js'
 
 export function createMasCreator(deps) {
-  const { config, home, agentLoop, gens, sessions } = deps
+  const { config, home, agentLoop, gens, sessions, registry } = deps
   const { genSessions, isAgentAlive, isAgentRegistered } = sessions
 
   function isGenerationComplete(masId) {
@@ -93,7 +92,7 @@ export function createMasCreator(deps) {
     fs.mkdirSync(path.join(root, 'references'), { recursive: true })
     writeUserInput(config, id, body)
 
-    upsertMas(config, {
+    registry.upsertMas({
       id,
       name: body.name || id,
       description: body.topic.slice(0, 120),
@@ -137,11 +136,11 @@ export function createMasCreator(deps) {
   }
 
   async function getGenerationStatus(masId) {
-    const m = loadRegistry(config).mas.find((x) => x.id === masId) || {}
+    const m = registry.findMas(masId) || {}
     const done = isGenerationComplete(masId)
     let status
     if (done) {
-      upsertMas(config, { id: masId, status: 'idle' })
+      registry.upsertMas({ id: masId, status: 'idle' })
       genSessions.delete(masId)
       status = 'completed'
     } else if ((m.lastGenSessionId && (await isAgentAlive(m.lastGenSessionId))) || genSessions.has(masId)) {
@@ -156,8 +155,7 @@ export function createMasCreator(deps) {
   async function getGenerationLog(masId) {
     const live = genSessions.get(masId)
     if (live && live.fast) return { ok: true, log: { sessionId: live.sessionId, events: live.events || [] } }
-    const regGuess = loadRegistry(config).mas.find((m) => m.id === masId)
-    const sid = (live && live.sessionId) || (regGuess && regGuess.lastGenSessionId) || null
+    const sid = (live && live.sessionId) || (registry.findMas(masId) || {}).lastGenSessionId || null
     const log = sid ? await sessions.sessionLog(sid) : null
     return { ok: true, log }
   }

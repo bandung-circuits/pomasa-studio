@@ -1,18 +1,12 @@
 import path from 'node:path'
 import { loadDescriptor } from '../data/descriptor.js'
 import { listDeclaredAgents, ORCHESTRATOR_KEY } from '../data/graph.js'
-import { loadRegistry, upsertMas } from '../MAS-manager/registry.js'
 import { runPrompt } from '../MAS-creator/prompt.js'
 import { defaultModel, promptMessage } from '../http.js'
 import { warmPrompt } from '../subagent-manager/manager.js'
-import { DEFAULT_UNIT, LEGACY_TASK } from '../task-manager/state.js'
 import { agentSessionId, designSessionId } from './ids.js'
 import { standbyAssistantText, standbySeed, standbyUserText } from './seed.js'
 import { designAssistantText, designUserText } from './design-prompt.js'
-
-function runScopeKey(unitKey, taskKey) {
-  return `${unitKey || DEFAULT_UNIT}|${taskKey || LEGACY_TASK}`
-}
 
 function resolveModel(ctx) {
   try {
@@ -28,7 +22,7 @@ function resolveModel(ctx) {
 }
 
 export function createAgentCreator(ctx, deps) {
-  const { workspace, config } = deps
+  const { workspace, config, registry } = deps
 
   function getAgents() {
     try { return ctx.get('agents') } catch { return null }
@@ -184,19 +178,6 @@ export function createAgentCreator(ctx, deps) {
     return { ok: true }
   }
 
-  function recordRunAgents(masId, unitKey, taskKey, agentMap) {
-    const scope = runScopeKey(unitKey, taskKey)
-    const existing = (loadRegistry(config).mas.find((m) => m.id === masId) || {})
-    const orchSid = agentMap.orchestrator || null
-    upsertMas(config, {
-      id: masId,
-      status: 'running',
-      lastRunAt: Date.now(),
-      lastRunSessionIds: { ...(existing.lastRunSessionIds || {}), [scope]: orchSid },
-      lastAgentSessionIds: { ...(existing.lastAgentSessionIds || {}), [scope]: { ...agentMap } },
-    })
-  }
-
   function runPromptWithRoster(masRoot, unitRoot, unitKey, opts, roster) {
     const base = runPrompt(masRoot, unitRoot, unitKey, opts)
     if (!roster || !roster.length) return base
@@ -270,7 +251,7 @@ ${lines}`
       await attachToCwdWorkspace(sid, unitRoot, agent.title || agent.key)
     }
 
-    recordRunAgents(masId, unitKey, taskKey, agentMap)
+    registry.recordRunAgents(masId, unitKey, taskKey, agentMap)
 
     const prompt = runPromptWithRoster(masRoot, unitRoot, `${unitKey}/${taskKey}`, opts, roster)
 
