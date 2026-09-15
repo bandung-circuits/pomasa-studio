@@ -6,7 +6,7 @@ function psIconSize(raw, size) {
     .replace(/\sheight="24"/, ' height="' + size + '"')
 }
 
-function PsIcon(props) {
+export function PsIcon(props) {
   const { name, size = 18, className, title } = props
   const raw = typeof ICON_SVGS !== 'undefined' && ICON_SVGS[name]
   if (!raw) return null

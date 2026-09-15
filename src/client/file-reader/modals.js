@@ -1,4 +1,13 @@
 // File reader overlays — blueprint, artifact viewer, rerun chooser.
+import { actionBus } from '../actions/bus.js'
+import { psBtn } from '../buttons/button.js'
+import { psTextarea } from '../components.js'
+import { portalSecondaryModal, psHierarchyBackdropProps, snapshotHierarchyBase } from '../hierachy/stack.js'
+import { t } from '../i18n.js'
+import { renderMarkdown } from '../md.js'
+import { getServices } from '../services/index.js'
+import { taskManager } from '../task-manager/store.js'
+import { downloadBlob, prettyJson, str } from '../util.js'
 
 function modalHierarchyBase(props) {
   return props && props.hierarchyBase != null ? props.hierarchyBase : 0
@@ -125,7 +134,7 @@ async function exportFileBlob(content, format, base) {
   }
 }
 
-function FileReaderHost() {
+export function FileReaderHost() {
   const [file, setFile] = React.useState(null)
   const [viewer, setViewer] = React.useState(null)
   const [rerun, setRerun] = React.useState(null)

@@ -1,4 +1,15 @@
 // Operation controller — right bar. Emits run.start / run.cancel for the current task.
+import { actionBus } from '../actions/bus.js'
+import { psBtn } from '../buttons/button.js'
+import { PartDescription } from '../description/hint.js'
+import { confirmDialog } from '../dialogue/queue.js'
+import { t } from '../i18n.js'
+import { useLocators } from '../locators/context.js'
+import { ScrollBox, ScrollFrame } from '../scrollbox/box.js'
+import { useStudioMode } from '../studio-mode/store.js'
+import { currentRunStatus, formatTaskLabel, taskManager, useTaskManager } from '../task-manager/store.js'
+import { requestRunForTask } from '../task-tree/tree.js'
+import { str } from '../util.js'
 
 function DisabledRunButton(props) {
   const { label, primary, className, style } = props
@@ -13,7 +24,7 @@ function DisabledRunButton(props) {
   )
 }
 
-function OperationController() {
+export function OperationController() {
   const loc = useLocators()
   const tm = useTaskManager()
   const studioMode = useStudioMode()

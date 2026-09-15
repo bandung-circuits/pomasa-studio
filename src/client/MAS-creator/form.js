@@ -1,4 +1,8 @@
 // Pattern catalog for the create form (bilingual catalog content, not chrome i18n).
+import { psBtn } from '../buttons/button.js'
+import { psField, psInput, psTextarea } from '../components.js'
+import { portalSecondaryModal, psHierarchyBackdropProps } from '../hierachy/stack.js'
+import { langStore, t, useLang } from '../i18n.js'
 
 const CATALOG_PATTERNS = [
   { id: 'COR-01', zh: '提示词定义的智能体', en: 'Prompt-Defined Agent', zhD: 'agent 即自然语言蓝图', enD: 'agents are natural-language blueprints', nec: 'must' },
@@ -60,7 +64,7 @@ function PatternsModal(props) {
   )
 }
 
-function CreateMas(props) {
+export function CreateMas(props) {
   const api = props.api
   const lang = useLang()
   const [f, setF] = React.useState(() => ({

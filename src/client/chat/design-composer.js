@@ -7,7 +7,7 @@ function findComposerTextarea() {
   return seat.querySelector('textarea')
 }
 
-function insertAgentIdToComposer(agentKey) {
+export function insertAgentIdToComposer(agentKey) {
   const ta = findComposerTextarea()
   if (!ta) return false
   const id = String(agentKey || '')
@@ -36,7 +36,7 @@ function prependDesignFocusToComposer(focusAgent) {
   ta.dispatchEvent(new Event('input', { bubbles: true }))
 }
 
-function installDesignComposerHook(getFocusAgent) {
+export function installDesignComposerHook(getFocusAgent) {
   if (typeof document === 'undefined') return () => {}
   const onKeyDown = (e) => {
     if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return

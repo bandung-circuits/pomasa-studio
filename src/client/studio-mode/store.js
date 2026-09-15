@@ -1,9 +1,9 @@
 // Studio mode — execute (0) vs design (1); picker in title bar.
 
-const MODE_EXECUTE = 0
-const MODE_DESIGN = 1
+export const MODE_EXECUTE = 0
+export const MODE_DESIGN = 1
 
-const studioModeRef = {
+export const studioModeRef = {
   mode: 'execute',
   sessionId: null,
   masRoot: null,
@@ -38,7 +38,7 @@ const studioModeRef = {
   },
 }
 
-const modePickerRef = {
+export const modePickerRef = {
   open: false,
   subs: new Set(),
   emit() { for (const fn of this.subs) fn() },
@@ -61,7 +61,7 @@ function designSessionSig() {
   ].join('\0')
 }
 
-function getDesignSessionSnapshot() {
+export function getDesignSessionSnapshot() {
   const sig = designSessionSig()
   if (designSessionSnapshot && designSessionSnapshotSig === sig) return designSessionSnapshot
   designSessionSnapshotSig = sig
@@ -74,7 +74,7 @@ function getDesignSessionSnapshot() {
   return designSessionSnapshot
 }
 
-function useStudioMode() {
+export function useStudioMode() {
   if (typeof React.useSyncExternalStore === 'function') {
     return React.useSyncExternalStore(
       studioModeRef.subscribe.bind(studioModeRef),
@@ -86,7 +86,7 @@ function useStudioMode() {
   return v
 }
 
-function useStudioModeIndex() {
+export function useStudioModeIndex() {
   if (typeof React.useSyncExternalStore === 'function') {
     return React.useSyncExternalStore(
       studioModeRef.subscribe.bind(studioModeRef),
@@ -98,7 +98,7 @@ function useStudioModeIndex() {
   return v
 }
 
-function useDesignSession() {
+export function useDesignSession() {
   if (typeof React.useSyncExternalStore === 'function') {
     return React.useSyncExternalStore(
       studioModeRef.subscribe.bind(studioModeRef),
@@ -111,7 +111,7 @@ function useDesignSession() {
   return v
 }
 
-function useModePickerOpen() {
+export function useModePickerOpen() {
   if (typeof React.useSyncExternalStore === 'function') {
     return React.useSyncExternalStore(
       modePickerRef.subscribe.bind(modePickerRef),
@@ -123,11 +123,11 @@ function useModePickerOpen() {
   return v
 }
 
-function isStudioDesignMode() {
+export function isStudioDesignMode() {
   return studioModeRef.mode === 'design'
 }
 
-function resetStudioMode() {
+export function resetStudioMode() {
   studioModeRef.reset()
   modePickerRef.setOpen(false)
 }

@@ -1,9 +1,15 @@
 // SecondaryWindow — part-like title bar + registered scroll body; portaled overlay.
+import { psBtn } from '../buttons/button.js'
+import { PartDescription } from '../description/hint.js'
+import { HierarchyScope, psHierarchyBackdropProps, psOverlayRoot, useHierarchyBase } from '../hierachy/stack.js'
+import { t } from '../i18n.js'
+import { ScrollBox, ScrollFrame } from '../scrollbox/box.js'
+import { str } from '../util.js'
 
 const secondaryTitleRegistry = new Map()
 const secondaryScrollRegistry = new Map()
 
-function registerSecondaryTitleAction(spec) {
+export function registerSecondaryTitleAction(spec) {
   const { windowId, id, order = 0, render } = spec || {}
   if (!windowId || !id || !render) return
   if (!secondaryTitleRegistry.has(windowId)) secondaryTitleRegistry.set(windowId, [])
@@ -19,7 +25,7 @@ function secondaryTitleActions(windowId) {
   return (secondaryTitleRegistry.get(windowId) || []).slice()
 }
 
-function registerSecondaryScroll(spec) {
+export function registerSecondaryScroll(spec) {
   const { windowId, Wrap } = spec || {}
   if (!windowId || !Wrap) return
   secondaryScrollRegistry.set(windowId, Wrap)
@@ -57,7 +63,7 @@ function SecondaryWindowTitleBar(props) {
   )
 }
 
-function SecondaryWindow(props) {
+export function SecondaryWindow(props) {
   const {
     windowId,
     open,

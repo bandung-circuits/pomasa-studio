@@ -1,4 +1,10 @@
 // Client entry — bundled to lib/client.js by scripts/bundle-client.mjs.
+
+import { t, useLang } from './i18n.js'
+import { registerStartupButton } from './startup-button/button.js'
+import { CSS } from './styles.js'
+import { eventsToChatMessages, mergeChatMessages, setSessionDriver, setSessionsService, setWorkbenchPanel, snapshotToChatMessages } from './util.js'
+import { StudioRoot } from './workbench/app.js'
 export const inject = ['slots', 'workspaces', 'sessions']
 
 function sf(ctx, name) {

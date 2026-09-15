@@ -443,7 +443,7 @@ function readBandungLang() {
     return typeof localStorage !== 'undefined' ? (localStorage.getItem('bandung-lang') === 'en' ? 'en' : 'zh') : 'zh'
   } catch { return 'zh' }
 }
-const langStore = {
+export const langStore = {
   val: readBandungLang(),
   subs: new Set(),
   emit() { for (const f of this.subs) f() },
@@ -455,12 +455,12 @@ const langStore = {
   },
   subscribe(f) { this.subs.add(f); return () => { this.subs.delete(f) } },
 }
-function useLang() {
+export function useLang() {
   const [v, setV] = React.useState(langStore.val)
   React.useEffect(() => langStore.subscribe(() => setV(langStore.val)), [])
   return v
 }
-function t(key, vars, l) {
+export function t(key, vars, l) {
   const code = l || langStore.val
   const dict = code === 'en' ? I18N_EN : I18N_ZH
   let s = (dict && dict[key]) || I18N_ZH[key] || key
@@ -469,8 +469,8 @@ function t(key, vars, l) {
 }
 
 let hostFileManagerApp = null
-function setHostFileManager(app) { hostFileManagerApp = app ? String(app) : null }
-function revealMenuLabel() {
+export function setHostFileManager(app) { hostFileManagerApp = app ? String(app) : null }
+export function revealMenuLabel() {
   if (hostFileManagerApp) return t('menu.reveal.named', { app: hostFileManagerApp })
   return t('menu.reveal')
 }

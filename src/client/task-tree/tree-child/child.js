@@ -1,4 +1,12 @@
 // Tree child rows — unit (add prototype) and task (basic prototype).
+import { actionBus } from '../../actions/bus.js'
+import { PsButton } from '../../buttons/button.js'
+import { psBadge } from '../../components.js'
+import { revealMenuLabel, t } from '../../i18n.js'
+import { locators } from '../../locators/context.js'
+import { menuService } from '../../menu-service/registry.js'
+import { formatTaskLabel } from '../../task-manager/store.js'
+import { str } from '../../util.js'
 
 function taskStatusBadge(task) {
   if (!task || !task.run) return psBadge('idle', t('not.run'))
@@ -30,7 +38,7 @@ function TreeRenameInput(props) {
   })
 }
 
-function UnitTreeChild(props) {
+export function UnitTreeChild(props) {
   const { unit, loc, busy } = props
   const [editing, setEditing] = React.useState(false)
   const rowRef = React.useRef(null)

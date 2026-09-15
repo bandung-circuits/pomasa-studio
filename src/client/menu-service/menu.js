@@ -1,6 +1,10 @@
 // MenuHost — renders registered context menus; forwards item clicks as actions.
+import { actionBus } from '../actions/bus.js'
+import { psHierarchyProps, snapshotHierarchyBase } from '../hierachy/stack.js'
+import { menuService } from './registry.js'
+import { str } from '../util.js'
 
-const menuState = {
+export const menuState = {
   open: null,
   payload: null,
   _snap: { open: null, payload: null },
@@ -65,7 +69,7 @@ function ensureMenuHost() {
   menuService.wireAll()
 }
 
-function MenuHost() {
+export function MenuHost() {
   ensureMenuHost()
   const { open, payload } = useMenuState()
   const panelRef = React.useRef(null)

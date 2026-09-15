@@ -1,4 +1,7 @@
 // Resizable row/column grid — layout only; sizes persisted via configStore.
+import { actionBus } from '../actions/bus.js'
+import { configStore } from '../configs/store.js'
+import { PartFrame, layoutSlots } from '../parts/slots.js'
 
 const GRID_SIZE_KEY = 'pomasa-grid-sizes'
 
@@ -87,7 +90,7 @@ function ensureGridBus() {
   })
 }
 
-function GridView(props) {
+export function GridView(props) {
   ensureGridBus()
   const { id, axis, cells, defaults, className, style } = props
   const isRow = axis === 'row'
@@ -177,7 +180,7 @@ function GridView(props) {
   }, kids)
 }
 
-function RegionStack(props) {
+export function RegionStack(props) {
   const { region } = props
   const parts = layoutSlots.parts(region)
   if (!parts.length) return null
@@ -231,7 +234,7 @@ function RegionGrid(props) {
   return h(GridView, { id: gridId, axis, cells, defaults: sizeDefaults })
 }
 
-function WorkStage() {
+export function WorkStage() {
   return h(RegionGrid, {
     region: 'work.center',
     gridId: 'work.center',
@@ -239,7 +242,7 @@ function WorkStage() {
   })
 }
 
-function WorkRightStage() {
+export function WorkRightStage() {
   return h(RegionGrid, {
     region: 'work.right',
     gridId: 'work.right',
@@ -247,7 +250,7 @@ function WorkRightStage() {
   })
 }
 
-function WorkBottomBar() {
+export function WorkBottomBar() {
   const parts = layoutSlots.parts('work.bottom')
   const nodes = parts.map((part) => {
     const content = part.render()

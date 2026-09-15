@@ -85,8 +85,12 @@ function stripModuleSyntax(src) {
   return src
     .replace(/^export const inject = .*$/m, '')
     .replace(/^export function apply/m, 'function apply')
+    .replace(/^export async function /gm, 'async function ')
     .replace(/^export function /gm, 'function ')
     .replace(/^export const /gm, 'const ')
+    .replace(/^export let /gm, 'let ')
+    .replace(/^export var /gm, 'var ')
+    .replace(/^export class /gm, 'class ')
     .replace(/^export \{[^}]+\}\s*;?\s*$/gm, '')
     .replace(/^import .+ from .+;?\s*$/gm, '')
 }

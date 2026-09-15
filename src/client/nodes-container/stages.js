@@ -1,6 +1,15 @@
 // Nodes container — workflow canvas (phase 2). Reads task-manager + subagent registry.
+import { GenerationPanel } from '../agent-processing-bar/bar.js'
+import { psEmpty } from '../components.js'
+import { t } from '../i18n.js'
+import { useLocators } from '../locators/context.js'
+import { NodesContainerScrollWrap } from './scroll.js'
+import { WorkflowCanvas } from '../orchestrator/row.js'
+import { getServices } from '../services/index.js'
+import { refreshSubagentList } from '../subagent-manager/store.js'
+import { useTaskManager } from '../task-manager/store.js'
 
-function NodesContainerBody() {
+export function NodesContainerBody() {
   const tm = useTaskManager()
   const loc = useLocators()
   const api = getServices()
@@ -28,6 +37,6 @@ function NodesContainerBody() {
   return h(WorkflowCanvas, { descriptor: tm.descriptor, tm, loc, aliveMap })
 }
 
-function NodesContainer() {
+export function NodesContainer() {
   return h(NodesContainerScrollWrap, null, h(NodesContainerBody, null))
 }

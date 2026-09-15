@@ -1,6 +1,6 @@
 // Client subagent registry — resolves agentKey → sessionId via /pomasa/subagent.*
 
-const subagentClient = {
+export const subagentClient = {
   cache: {},
   subs: new Set(),
   emit() { for (const fn of this.subs) fn() },
@@ -22,7 +22,7 @@ const subagentClient = {
 function subagentClientSubscribe(fn) { return subagentClient.subscribe(fn) }
 function subagentClientSnapshot() { return subagentClient.cache }
 
-function useSubagentClient() {
+export function useSubagentClient() {
   if (typeof React.useSyncExternalStore === 'function') {
     return React.useSyncExternalStore(subagentClientSubscribe, subagentClientSnapshot)
   }
@@ -31,7 +31,7 @@ function useSubagentClient() {
   return v
 }
 
-async function refreshSubagentInfo(api, masId, unitKey, taskKey, agentKey) {
+export async function refreshSubagentInfo(api, masId, unitKey, taskKey, agentKey) {
   if (!api || !masId || !agentKey) return null
   const r = await api.subagentInfo(masId, unitKey, taskKey, agentKey)
   if (r && r.ok) {
@@ -50,7 +50,7 @@ async function refreshSubagentInfo(api, masId, unitKey, taskKey, agentKey) {
   return r
 }
 
-async function refreshSubagentList(api, masId, unitKey, taskKey) {
+export async function refreshSubagentList(api, masId, unitKey, taskKey) {
   if (!api || !masId) return null
   const r = await api.subagentList(masId, unitKey, taskKey)
   if (r && r.ok && r.alive) {

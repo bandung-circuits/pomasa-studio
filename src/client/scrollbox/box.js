@@ -1,6 +1,6 @@
 // ScrollFrame + ScrollBox — Frame scrolls; default Box follows Frame width; canvas is nodes derivative.
 
-const partScrollStore = {
+export const partScrollStore = {
   _scales: {},
   _ver: 0,
   _subs: new Set(),
@@ -28,7 +28,7 @@ function partScrollSnapshot(partId) {
   return partScrollStore.getScale(partId)
 }
 
-function usePartScrollScale(partId, enabled) {
+export function usePartScrollScale(partId, enabled) {
   if (!enabled || !partId) return 1
   if (typeof React.useSyncExternalStore === 'function') {
     return React.useSyncExternalStore(
@@ -43,14 +43,14 @@ function usePartScrollScale(partId, enabled) {
   return scale
 }
 
-function ScrollFrame(props) {
+export function ScrollFrame(props) {
   const { className, children, ...rest } = props
   const cls = ['ps-scroll-frame']
   if (className) cls.push(className)
   return h('div', Object.assign({ className: cls.join(' ') }, rest), children)
 }
 
-function ScrollBox(props) {
+export function ScrollBox(props) {
   const {
     mode = 'default',
     scale = 1,

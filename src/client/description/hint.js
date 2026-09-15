@@ -1,4 +1,7 @@
 // Part description — info icon + layer-aware fixed tooltip.
+import { psHierarchyProps, psOverlayRoot, useHierarchyBase } from '../hierachy/stack.js'
+import { PsIcon } from '../icons/icons.js'
+import { str } from '../util.js'
 
 function resolveDescriptionLines(props) {
   const { text, rows } = props || {}
@@ -10,7 +13,7 @@ function resolveDescriptionLines(props) {
   return [str(v)]
 }
 
-function PartDescription(props) {
+export function PartDescription(props) {
   const ctxBase = useHierarchyBase()
   const base = (props && props.hierarchyBase) != null ? props.hierarchyBase : ctxBase
   const children = props && props.children

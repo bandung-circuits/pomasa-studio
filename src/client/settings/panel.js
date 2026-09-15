@@ -1,6 +1,10 @@
 // Settings secondary window — language toggle.
+import { psBtn } from '../buttons/button.js'
+import { configStore, useConfigLang } from '../configs/store.js'
+import { portalSecondaryModal, psHierarchyBackdropProps } from '../hierachy/stack.js'
+import { t } from '../i18n.js'
 
-function SettingsPanel(props) {
+export function SettingsPanel(props) {
   const lang = useConfigLang()
   if (!props.open) return null
   return portalSecondaryModal(0,

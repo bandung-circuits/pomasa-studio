@@ -1,4 +1,6 @@
 // Menu registry — one openOn action per menu; items forward actions only.
+import { actionBus } from '../actions/bus.js'
+import { menuState } from './menu.js'
 
 const menuOpenWired = new Set()
 
@@ -8,7 +10,7 @@ function wireMenuOpen(entry) {
   actionBus.on(entry.openOn, (payload) => menuState.show(entry, payload))
 }
 
-const menuService = {
+export const menuService = {
   menus: [],
   register(spec) {
     if (!spec || !spec.id || !spec.openOn) return () => {}

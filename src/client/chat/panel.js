@@ -1,6 +1,15 @@
 // Agent chat panel — docks DSH ConversationRoot (scrollBody + composer) into work.right.
+import { actionBus } from '../actions/bus.js'
+import { insertAgentIdToComposer, installDesignComposerHook } from './design-composer.js'
+import { NativeConversationSeat, buildNativeBind, nativeConversationState, restoreSessionSelection, undockConversationRoot } from './native-seat.js'
+import { t } from '../i18n.js'
+import { useLocators } from '../locators/context.js'
+import { getServices } from '../services/index.js'
+import { getDesignSessionSnapshot, isStudioDesignMode, studioModeRef, useDesignSession, useStudioMode } from '../studio-mode/store.js'
+import { refreshSubagentInfo, subagentClient, useSubagentClient } from '../subagent-manager/store.js'
+import { getSessionsService, useNodesExpandOpen, useWorkbenchOpen } from '../util.js'
 
-function AgentChatPanel() {
+export function AgentChatPanel() {
   const loc = useLocators()
   const api = getServices()
   const workbenchOpen = useWorkbenchOpen()

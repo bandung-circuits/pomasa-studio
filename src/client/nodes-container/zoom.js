@@ -1,6 +1,12 @@
 // Nodes canvas zoom — title action + temporary-window slider.
+import { PsButton } from '../buttons/button.js'
+import { useHierarchyBase } from '../hierachy/stack.js'
+import { t } from '../i18n.js'
+import { registerTitleAction } from '../parts/slots.js'
+import { partScrollStore, usePartScrollScale } from '../scrollbox/box.js'
+import { TemporaryWindow } from '../temporary-window/window.js'
 
-function NodesZoomTitleAction() {
+export function NodesZoomTitleAction() {
   const anchorRef = React.useRef(null)
   const [open, setOpen] = React.useState(false)
   const scale = usePartScrollScale('nodes-container', true)

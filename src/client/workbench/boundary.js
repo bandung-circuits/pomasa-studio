@@ -1,6 +1,9 @@
 // Error boundary for the workbench subtree.
+import { psBtn } from '../buttons/button.js'
+import { t } from '../i18n.js'
+import { str } from '../util.js'
 
-function PsBoundary(props) {
+export function PsBoundary(props) {
   return h(BoundaryImpl, null, props.children ? React.Children.toArray(props.children) : null)
 }
 

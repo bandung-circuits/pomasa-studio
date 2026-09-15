@@ -1,6 +1,6 @@
 // Current navigation context: masId + unitKey + taskKey + agentKey (canvas node).
 
-const locators = {
+export const locators = {
   masId: null,
   unitKey: null,
   taskKey: null,
@@ -31,7 +31,7 @@ const locators = {
 function locatorsSubscribe(fn) { return locators.subscribe(fn) }
 function locatorsSnapshot() { return locators._snap }
 
-function useLocators() {
+export function useLocators() {
   if (typeof React.useSyncExternalStore === 'function') {
     return React.useSyncExternalStore(locatorsSubscribe, locatorsSnapshot)
   }

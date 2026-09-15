@@ -1,4 +1,6 @@
 // Footer startup button — registers in DSH sidebar footArea via sidebar.footer.action.
+import { t } from '../i18n.js'
+import { PsIcon } from '../icons/icons.js'
 
 function usePanelOpen(panel) {
   if (typeof React.useSyncExternalStore === 'function') {
@@ -30,7 +32,7 @@ function StartupButton(props) {
   )
 }
 
-function registerStartupButton(slots, panel, h2) {
+export function registerStartupButton(slots, panel, h2) {
   function FooterStartup(props) {
     const open = usePanelOpen(panel)
     const wide = !(props && props.wide === false)

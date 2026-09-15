@@ -1,4 +1,12 @@
 // Title bars for boot and work layouts — emit actions, read locators/task-manager.
+import { actionBus } from '../actions/bus.js'
+import { BootSign } from '../boot-sign/sign.js'
+import { psBtn, psIconBtn } from '../buttons/button.js'
+import { t } from '../i18n.js'
+import { locators, useLocators } from '../locators/context.js'
+import { StudioModeSwitchBtn } from '../studio-mode/panel.js'
+import { useTaskManager } from '../task-manager/store.js'
+import { closeWorkbenchPanel, str } from '../util.js'
 
 function StudioCloseBtn() {
   return h(psIconBtn, {
@@ -9,7 +17,7 @@ function StudioCloseBtn() {
   })
 }
 
-function BootTitleBarSlot() {
+export function BootTitleBarSlot() {
   return h('div', { className: 'ps-title-bar' },
     h('div', { className: 'ps-title-left' }, h(BootSign, null)),
     h('span', { className: 'spacer', style: { flex: 1 } }),
@@ -19,7 +27,7 @@ function BootTitleBarSlot() {
   )
 }
 
-function WorkTitleBarSlot() {
+export function WorkTitleBarSlot() {
   const loc = useLocators()
   const tm = useTaskManager()
   const name = str((tm.descriptor && (tm.descriptor.name || tm.descriptor.id)) || loc.masId || '')

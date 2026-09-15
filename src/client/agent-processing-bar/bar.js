@@ -1,6 +1,11 @@
 // Generation progress bar — reads task-manager genStatus.
+import { psCard } from '../components.js'
+import { t } from '../i18n.js'
+import { useLocators } from '../locators/context.js'
+import { useTaskManager } from '../task-manager/store.js'
+import { str } from '../util.js'
 
-function AgentProcessingBar(props) {
+export function AgentProcessingBar(props) {
   const loc = useLocators()
   const tm = useTaskManager()
   const masId = loc.masId
@@ -21,7 +26,7 @@ function AgentProcessingBar(props) {
   )
 }
 
-function GenerationPanel(props) {
+export function GenerationPanel(props) {
   const gs = (props.genStatus && props.genStatus.status) || 'idle'
   const stillWorking = gs === 'generating' || gs === 'queued'
   const failed = gs === 'failed'

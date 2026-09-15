@@ -34,11 +34,11 @@ function deriveWorkflowGraph(descriptor) {
   return { rows: [{ id: 'main', orchestratorKey: ORCHESTRATOR_KEY, orchestrator, stages, edges }] }
 }
 
-function workflowRows(descriptor) {
+export function workflowRows(descriptor) {
   return deriveWorkflowGraph(descriptor).rows
 }
 
-function nodeStageState(tm, node) {
+export function nodeStageState(tm, node) {
   if (node.key === ORCHESTRATOR_KEY) {
     const run = tm.unitState && tm.unitState.run
     return run ? { status: run.status || 'waiting', artifactCount: 0 } : { status: 'waiting', artifactCount: 0 }

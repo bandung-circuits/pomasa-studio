@@ -1,4 +1,6 @@
 // Unified button UI — text/icon × dark/light; named presets via registerButton.
+import { t } from '../i18n.js'
+import { PsIcon } from '../icons/icons.js'
 
 const buttonRegistry = new Map()
 
@@ -33,7 +35,7 @@ function psButtonClassName(kind, tone, ghost, extra) {
   return cls.join(' ')
 }
 
-function PsButton(props, children) {
+export function PsButton(props, children) {
   const p = resolveButtonProps(props, children)
   const kind = p.kind || 'text'
   const tone = p.tone || 'light'
@@ -60,7 +62,7 @@ function PsButton(props, children) {
   }), body)
 }
 
-function psBtn(props, children) {
+export function psBtn(props, children) {
   const p = props || {}
   if (p.ghost) {
     return PsButton(Object.assign({}, p, { kind: 'text', ghost: true }), children)
@@ -71,7 +73,7 @@ function psBtn(props, children) {
   }), children)
 }
 
-function psIconBtn(props) {
+export function psIconBtn(props) {
   const p = props || {}
   return PsButton(Object.assign({}, p, {
     kind: 'icon',

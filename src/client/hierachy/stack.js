@@ -44,19 +44,19 @@ function psHierarchyZ(kind, base) {
   return b + offset
 }
 
-function psHierarchyStyle(kind, base) {
+export function psHierarchyStyle(kind, base) {
   const z = psHierarchyZ(kind, base)
   return { zIndex: z, '--ps-z': String(z) }
 }
 
-function psHierarchyProps(kind, base) {
+export function psHierarchyProps(kind, base) {
   return {
     className: 'ps-hier',
     style: psHierarchyStyle(kind, base),
   }
 }
 
-function psHierarchyBackdropProps(kind, base) {
+export function psHierarchyBackdropProps(kind, base) {
   const style = psHierarchyStyle(kind, base)
   return {
     className: 'ps-modal-backdrop ps-hier',
@@ -64,24 +64,24 @@ function psHierarchyBackdropProps(kind, base) {
   }
 }
 
-function psHierarchyMainProps() {
+export function psHierarchyMainProps() {
   return {
     className: 'ps-hier-main',
     style: psHierarchyStyle('main', 0),
   }
 }
 
-function useHierarchyBase() {
+export function useHierarchyBase() {
   return React.useContext(HierarchyBaseContext)
 }
 
-function snapshotHierarchyBase() {
+export function snapshotHierarchyBase() {
   return hierarchyBaseStack.length
     ? hierarchyBaseStack[hierarchyBaseStack.length - 1]
     : 0
 }
 
-function HierarchyScope(props) {
+export function HierarchyScope(props) {
   const { kind, base: explicitBase, children } = props
   const parentBase = useHierarchyBase()
   const scopeBase = psHierarchyChildBase(kind, explicitBase != null ? explicitBase : parentBase)
@@ -94,7 +94,7 @@ function HierarchyScope(props) {
   return h(HierarchyBaseContext.Provider, { value: scopeBase }, children)
 }
 
-function psOverlayRoot() {
+export function psOverlayRoot() {
   if (typeof document === 'undefined') return null
   let el = document.getElementById('ps-overlay-root')
   if (!el) {
@@ -106,7 +106,7 @@ function psOverlayRoot() {
 }
 
 /** Portal a secondary overlay into #ps-overlay-root with optional nested hierarchy base. */
-function portalSecondaryModal(hierarchyBase, content) {
+export function portalSecondaryModal(hierarchyBase, content) {
   const inner = h(HierarchyScope, {
     kind: 'secondary',
     base: hierarchyBase != null ? hierarchyBase : undefined,

@@ -1,4 +1,13 @@
 // Nodes canvas expand — secondary window with canvas + subagent details stack.
+import { PsButton } from '../buttons/button.js'
+import { t } from '../i18n.js'
+import { NodesContainerScrollWrap } from './scroll.js'
+import { NodesContainerBody } from './stages.js'
+import { NodesZoomTitleAction } from './zoom.js'
+import { registerTitleAction } from '../parts/slots.js'
+import { SecondaryWindow, registerSecondaryTitleAction } from '../secondary-window/window.js'
+import { SubagentDetailsPanel } from '../subagent-details/artifacts.js'
+import { setNodesExpandOpen } from '../util.js'
 
 function NodesExpandWindowBody() {
   return h('div', { className: 'ps-expand-stack' },

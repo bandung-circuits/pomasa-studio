@@ -1,4 +1,10 @@
 // Task manager — polling unit/task tree + current task state. No UI.
+import { actionBus } from '../actions/bus.js'
+import { deleteDialog, promptDialog } from '../dialogue/queue.js'
+import { locators } from '../locators/context.js'
+import { getServices } from '../services/index.js'
+import { subagentClient } from '../subagent-manager/store.js'
+import { str } from '../util.js'
 
 function emptyTaskSnap() {
   return {
@@ -14,7 +20,7 @@ function emptyTaskSnap() {
   }
 }
 
-const taskManager = {
+export const taskManager = {
   api: null,
   pollTimer: null,
   bound: false,
@@ -357,7 +363,7 @@ const taskManager = {
 function taskManagerSubscribe(fn) { return taskManager.subscribe(fn) }
 function taskManagerSnapshot() { return taskManager._snap }
 
-function useTaskManager() {
+export function useTaskManager() {
   if (typeof React.useSyncExternalStore === 'function') {
     return React.useSyncExternalStore(taskManagerSubscribe, taskManagerSnapshot)
   }
@@ -366,7 +372,7 @@ function useTaskManager() {
   return v
 }
 
-function currentStage(tm) {
+export function currentStage(tm) {
   const loc = locators.snapshot()
   const stages = (tm.unitState && tm.unitState.stages) || []
   if (loc.agentKey) {
@@ -400,12 +406,12 @@ function currentStage(tm) {
   return stages[tm.stageSel] || stages[0] || null
 }
 
-function currentRunStatus(tm) {
+export function currentRunStatus(tm) {
   const run = (tm.unitState && tm.unitState.run) || null
   return run ? str(run.status) : 'waiting'
 }
 
-function formatTaskLabel(taskId) {
+export function formatTaskLabel(taskId) {
   if (!taskId || taskId === 'legacy') return t('task.legacy')
   const m = String(taskId).match(/^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})/)
   if (m) return `${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}:${m[6]}`

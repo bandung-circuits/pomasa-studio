@@ -1,4 +1,13 @@
 // Studio mode — title-bar switch + dialogue-style picker (0=execute, 1=design).
+import { actionBus } from '../actions/bus.js'
+import { psBtn, psIconBtn } from '../buttons/button.js'
+import { confirmDialog, portalDialogueModal } from '../dialogue/queue.js'
+import { psHierarchyBackdropProps, snapshotHierarchyBase } from '../hierachy/stack.js'
+import { t } from '../i18n.js'
+import { useLocators } from '../locators/context.js'
+import { getServices } from '../services/index.js'
+import { MODE_DESIGN, MODE_EXECUTE, modePickerRef, resetStudioMode, studioModeRef, useModePickerOpen, useStudioModeIndex } from './store.js'
+import { taskManager } from '../task-manager/store.js'
 
 function modeDescLines(key) {
   return t(key).split('\n').map((line) => line.trim()).filter(Boolean)
@@ -41,7 +50,7 @@ async function activateDesignMode(loc, api) {
   return true
 }
 
-function StudioModeSwitchBtn() {
+export function StudioModeSwitchBtn() {
   const loc = useLocators()
   const modeIdx = useStudioModeIndex()
   const label = modeIdx === MODE_DESIGN ? t('mode.design') : t('mode.execute')
@@ -53,7 +62,7 @@ function StudioModeSwitchBtn() {
   })
 }
 
-function StudioModePickerHost() {
+export function StudioModePickerHost() {
   const loc = useLocators()
   const open = useModePickerOpen()
   const modeIdx = useStudioModeIndex()

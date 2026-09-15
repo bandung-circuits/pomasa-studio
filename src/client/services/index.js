@@ -1,7 +1,8 @@
 // Client-side service facade over /pomasa HTTP.
+import { createApi } from '../api.js'
 
 let _services = null
-function getServices() {
+export function getServices() {
   if (!_services) _services = createApi()
   return _services
 }

@@ -13,7 +13,7 @@ const ACTION_CHILDREN = {
   'task.change': ['artifact.clear'],
 }
 
-const actionBus = {
+export const actionBus = {
   subs: new Map(),
   on(type, fn) {
     if (!this.subs.has(type)) this.subs.set(type, new Set())

@@ -1,4 +1,21 @@
 // Workbench root — boot/work routing, overlays, session-driver adapters.
+import { CreateMas } from '../MAS-creator/form.js'
+import { actionBus } from '../actions/bus.js'
+import { DialogueHost, progressDialog } from '../dialogue/queue.js'
+import { FileReaderHost } from '../file-reader/modals.js'
+import { psHierarchyMainProps } from '../hierachy/stack.js'
+import { setHostFileManager, t, useLang } from '../i18n.js'
+import { BootLayout } from '../layout/boot.js'
+import { WorkLayout } from '../layout/work.js'
+import { locators, useLocators } from '../locators/context.js'
+import { MenuHost } from '../menu-service/menu.js'
+import { registerStudioSlots } from '../parts/slots.js'
+import { getServices } from '../services/index.js'
+import { SettingsPanel } from '../settings/panel.js'
+import { StudioModePickerHost } from '../studio-mode/panel.js'
+import { refreshSubagentList } from '../subagent-manager/store.js'
+import { taskManager, useTaskManager } from '../task-manager/store.js'
+import { PsBoundary } from './boundary.js'
 
 function enterGeneratedMas(masId) {
   locators.set({ masId, unitKey: null, taskKey: null, agentKey: null })
@@ -20,7 +37,7 @@ async function openGenerationProgress(masId, runnersRef) {
   return false
 }
 
-function StudioRoot(props) {
+export function StudioRoot(props) {
   useLang()
   const loc = useLocators()
   const tm = useTaskManager()

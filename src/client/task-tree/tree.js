@@ -1,4 +1,14 @@
 // Task tree — flat unit folders + tree-child rows. Refresh via task-manager poll.
+import { actionBus } from '../actions/bus.js'
+import { PsButton } from '../buttons/button.js'
+import { confirmDialog } from '../dialogue/queue.js'
+import { t } from '../i18n.js'
+import { locators, useLocators } from '../locators/context.js'
+import { registerTitleAction } from '../parts/slots.js'
+import { ScrollBox, ScrollFrame } from '../scrollbox/box.js'
+import { formatTaskLabel, taskManager, useTaskManager } from '../task-manager/store.js'
+import { UnitTreeChild } from './tree-child/child.js'
+import { str } from '../util.js'
 
 function PartTitlePlus(props) {
   return h(PsButton, {
@@ -27,7 +37,7 @@ function orderUnits(units) {
   return def ? [def, ...rest] : rest
 }
 
-function TaskTree() {
+export function TaskTree() {
   const loc = useLocators()
   const tm = useTaskManager()
   const units = orderUnits(tm.units || [])
@@ -54,7 +64,7 @@ function TaskTree() {
   )
 }
 
-function requestRunForTask(unitKey, taskKey) {
+export function requestRunForTask(unitKey, taskKey) {
   const masId = locators.masId
   if (taskManager.taskHasResults(unitKey, taskKey)) {
     actionBus.emit('run.choose', { masId, unitKey, taskKey })

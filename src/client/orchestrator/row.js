@@ -1,4 +1,13 @@
 // Orchestrator shell — container for subagent sequence (orchestrator is not a subagent node).
+import { actionBus } from '../actions/bus.js'
+import { psIconBtn } from '../buttons/button.js'
+import { STAGE_STATUS_BADGE, psEmpty } from '../components.js'
+import { nodeStageState, workflowRows } from '../data/graph.js'
+import { t } from '../i18n.js'
+import { useStudioMode } from '../studio-mode/store.js'
+import { SubagentNode } from '../subagents/node.js'
+import { taskManager } from '../task-manager/store.js'
+import { str } from '../util.js'
 
 const CANVAS_BRIDGE_STROKE = 'var(--dsw-alias-border-l3, #c8c8c8)'
 function stageSameRow(fromEl, toEl) {
@@ -174,7 +183,7 @@ function chatSelectPayload(loc, node) {
   }
 }
 
-function WorkflowCanvas(props) {
+export function WorkflowCanvas(props) {
   const { descriptor, tm, loc, aliveMap } = props
   const designMode = useStudioMode() === 'design'
   const rows = workflowRows(descriptor)

@@ -1,6 +1,7 @@
 // User-facing config state (language bridges to langStore in i18n.js).
+import { langStore } from '../i18n.js'
 
-const configStore = {
+export const configStore = {
   subs: new Set(),
   emit() { for (const fn of this.subs) fn() },
   getLang() { return langStore.val },
@@ -11,7 +12,7 @@ const configStore = {
 function configSubscribe(fn) { return configStore.subscribe(fn) }
 function configGetLang() { return configStore.getLang() }
 
-function useConfigLang() {
+export function useConfigLang() {
   if (typeof React.useSyncExternalStore === 'function') {
     return React.useSyncExternalStore(configSubscribe, configGetLang)
   }

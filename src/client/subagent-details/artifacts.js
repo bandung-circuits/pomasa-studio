@@ -1,4 +1,12 @@
 // Artifact cards and stage contract listing (bottom panel content).
+import { actionBus } from '../actions/bus.js'
+import { STAGE_STATUS_TEXT, psEmpty } from '../components.js'
+import { t } from '../i18n.js'
+import { useLocators } from '../locators/context.js'
+import { ScrollBox, ScrollFrame } from '../scrollbox/box.js'
+import { getServices } from '../services/index.js'
+import { currentStage, taskManager, useTaskManager } from '../task-manager/store.js'
+import { fmtSize, resolveArtifactPath, str } from '../util.js'
 
 function ArtifactCard(props) {
   const { entry, presetTitle, path, forceTitle, active, onClick, contract, onHead } = props
@@ -73,7 +81,7 @@ function stageContractCards(stage, unit, api, openArtifact, artifact, onHead) {
   )
 }
 
-function SubagentDetailsPanel() {
+export function SubagentDetailsPanel() {
   const loc = useLocators()
   const tm = useTaskManager()
   const stage = currentStage(tm)

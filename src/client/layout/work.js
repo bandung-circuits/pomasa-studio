@@ -1,6 +1,11 @@
 // Work layout — title / middle (3-column grid) / optional status bar.
+import { GridView, RegionStack, WorkBottomBar, WorkRightStage, WorkStage } from '../grid-view/grid.js'
+import { t } from '../i18n.js'
+import { layoutSlots, registerStudioSlots } from '../parts/slots.js'
+import { useTaskManager } from '../task-manager/store.js'
+import { str } from '../util.js'
 
-function WorkLayout() {
+export function WorkLayout() {
   registerStudioSlots()
   const tm = useTaskManager()
   if (tm.generated === null) {

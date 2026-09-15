@@ -1,4 +1,9 @@
 // Modal dialogue queue (confirm / prompt / progress).
+import { psBtn } from '../buttons/button.js'
+import { psHierarchyBackdropProps, psOverlayRoot, snapshotHierarchyBase } from '../hierachy/stack.js'
+import { t } from '../i18n.js'
+import { getServices } from '../services/index.js'
+import { latestAssistantLine, str } from '../util.js'
 
 const dialogueQueue = {
   items: [],
@@ -15,7 +20,7 @@ const progressDialogOpen = new Map()
 function dialogueSubscribe(fn) { return dialogueQueue.subscribe(fn) }
 function dialoguePeek() { return dialogueQueue.peek() }
 
-function deleteDialog(opts) {
+export function deleteDialog(opts) {
   return new Promise((resolve) => {
     dialogueQueue.push({
       kind: 'delete',
@@ -30,7 +35,7 @@ function deleteDialog(opts) {
   })
 }
 
-function confirmDialog(opts) {
+export function confirmDialog(opts) {
   return new Promise((resolve) => {
     dialogueQueue.push({
       kind: 'confirm',
@@ -45,7 +50,7 @@ function confirmDialog(opts) {
   })
 }
 
-function promptDialog(opts) {
+export function promptDialog(opts) {
   return new Promise((resolve) => {
     dialogueQueue.push({
       kind: 'prompt',
@@ -60,7 +65,7 @@ function promptDialog(opts) {
   })
 }
 
-function progressDialog(opts) {
+export function progressDialog(opts) {
   const masId = opts && opts.masId ? String(opts.masId) : ''
   if (masId && progressDialogOpen.has(masId)) return progressDialogOpen.get(masId)
   const promise = new Promise((resolve) => {
@@ -90,7 +95,7 @@ function useDialoguePeek() {
 }
 
 /** Portal dialogue backdrop above ConversationRoot dock (z=21) via #ps-overlay-root. */
-function portalDialogueModal(content) {
+export function portalDialogueModal(content) {
   const root = psOverlayRoot()
   if (root && typeof ReactDOM !== 'undefined' && ReactDOM.createPortal) {
     return ReactDOM.createPortal(content, root)
@@ -174,7 +179,7 @@ function ProgressDialogBody(props) {
   )
 }
 
-function DialogueHost() {
+export function DialogueHost() {
   const item = useDialoguePeek()
   const inputRef = React.useRef(null)
   React.useEffect(() => {

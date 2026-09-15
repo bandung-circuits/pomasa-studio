@@ -1,8 +1,22 @@
 // Part registry — region + order + title/render; layout/grid compose regions.
+import { MasList } from '../MAS-list/list.js'
+import { AgentProcessingBar } from '../agent-processing-bar/bar.js'
+import { BootTitleBarSlot, WorkTitleBarSlot } from '../basic-title-area/title.js'
+import { AgentChatPanel } from '../chat/panel.js'
+import { PartDescription } from '../description/hint.js'
+import { RegionStack } from '../grid-view/grid.js'
+import { psHierarchyMainProps } from '../hierachy/stack.js'
+import { t } from '../i18n.js'
+import { NodesContainer } from '../nodes-container/stages.js'
+import { OperationController } from '../operation-controller/controls.js'
+import { SubagentDetailsPanel } from '../subagent-details/artifacts.js'
+import { currentStage, taskManager } from '../task-manager/store.js'
+import { TaskTree } from '../task-tree/tree.js'
+import { str } from '../util.js'
 
 const titleActionRegistry = new Map()
 
-function registerTitleAction(spec) {
+export function registerTitleAction(spec) {
   const { partId, id, order = 0, render } = spec || {}
   if (!partId || !id || !render) return
   if (!titleActionRegistry.has(partId)) titleActionRegistry.set(partId, [])
@@ -28,7 +42,7 @@ function PartTitleBar(props) {
   )
 }
 
-function PartFrame(props) {
+export function PartFrame(props) {
   const {
     partId,
     title,
@@ -102,10 +116,10 @@ function createSlotRegistry() {
   }
 }
 
-const layoutSlots = createSlotRegistry()
+export const layoutSlots = createSlotRegistry()
 let studioSlotsReady = false
 
-function registerStudioSlots() {
+export function registerStudioSlots() {
   if (studioSlotsReady) return
   studioSlotsReady = true
   layoutSlots.register({ id: 'boot-title', region: 'boot.title', order: 0, title: null, render: () => h(BootTitleBarSlot, null) })

@@ -1,6 +1,10 @@
 // Subagent node card — blueprint / select / chat actions.
+import { psIconBtn } from '../buttons/button.js'
+import { STAGE_STATUS_BADGE } from '../components.js'
+import { t } from '../i18n.js'
+import { stageCountText, str } from '../util.js'
 
-function SubagentNode(props) {
+export function SubagentNode(props) {
   const {
     node,
     state,

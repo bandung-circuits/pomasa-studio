@@ -1,6 +1,8 @@
 // Shared client helpers (no imports — bundled by scripts/bundle-client.mjs).
+import { STAGE_STATUS_TEXT } from './components.js'
+import { t } from './i18n.js'
 
-function downloadBlob(blob, filename) {
+export function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -11,7 +13,7 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(url)
 }
 
-function str(v) {
+export function str(v) {
   if (v === null || v === undefined) return ''
   if (typeof v === 'string') return v
   if (typeof v === 'number') return String(v)
@@ -33,12 +35,12 @@ function stateColorSafe(status) {
   return typeof status === 'string' ? status : 'waiting'
 }
 
-function stageCountText(s) {
+export function stageCountText(s) {
   const st = s && STAGE_STATUS_TEXT[s.status] ? STAGE_STATUS_TEXT[s.status]() : null
   return st ? t('stage.count.text', { n: str(s.artifactCount), st }) : t('stage.count.plain', { n: str(s.artifactCount) })
 }
 
-function resolveArtifactPath(contract, entry) {
+export function resolveArtifactPath(contract, entry) {
   const seg = str((entry && (entry.file || entry.path)) || '')
   if (!contract || !contract.indexPath || !seg) return seg
   const dir = String(contract.indexPath).split('/').slice(0, -1).join('/')
@@ -46,34 +48,34 @@ function resolveArtifactPath(contract, entry) {
   return seg.startsWith(dir + '/') ? seg : dir + '/' + seg
 }
 
-function fmtSize(n) {
+export function fmtSize(n) {
   if (!n) return ''
   if (n > 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + ' MB'
   if (n > 1024) return Math.round(n / 1024) + ' KB'
   return n + ' B'
 }
 
-function prettyJson(content) {
+export function prettyJson(content) {
   try { return JSON.stringify(JSON.parse(content), null, 2) } catch (e) { return content }
 }
 
 const sessionDriverRef = { current: null }
-function setSessionDriver(d) { sessionDriverRef.current = d }
+export function setSessionDriver(d) { sessionDriverRef.current = d }
 function getSessionDriver() { return sessionDriverRef.current }
 
 const sessionsServiceRef = { current: null }
-function setSessionsService(s) { sessionsServiceRef.current = s }
-function getSessionsService() { return sessionsServiceRef.current }
+export function setSessionsService(s) { sessionsServiceRef.current = s }
+export function getSessionsService() { return sessionsServiceRef.current }
 
 const workbenchPanelRef = { current: null }
-function setWorkbenchPanel(p) { workbenchPanelRef.current = p }
+export function setWorkbenchPanel(p) { workbenchPanelRef.current = p }
 
-function closeWorkbenchPanel() {
+export function closeWorkbenchPanel() {
   const panel = workbenchPanelRef.current
   if (panel && typeof panel.close === 'function') panel.close()
 }
 
-function useWorkbenchOpen() {
+export function useWorkbenchOpen() {
   const panel = workbenchPanelRef.current
   if (!panel) return false
   if (typeof React.useSyncExternalStore === 'function') {
@@ -92,9 +94,9 @@ const nodesExpandRef = {
   setOpen(v) { this.open = !!v; this.emit() },
 }
 
-function setNodesExpandOpen(v) { nodesExpandRef.setOpen(v) }
+export function setNodesExpandOpen(v) { nodesExpandRef.setOpen(v) }
 
-function useNodesExpandOpen() {
+export function useNodesExpandOpen() {
   if (typeof React.useSyncExternalStore === 'function') {
     return React.useSyncExternalStore(nodesExpandRef.subscribe.bind(nodesExpandRef), () => nodesExpandRef.open)
   }
@@ -116,7 +118,7 @@ function normalizeChatMessages(rows) {
   return out
 }
 
-function snapshotToChatMessages(snap) {
+export function snapshotToChatMessages(snap) {
   if (!snap) return []
   const out = []
   for (const n of snap.nodes || []) {
@@ -141,7 +143,7 @@ function eventContentToText(content) {
 }
 
 /** Extract chat rows from persisted session events (user/message, assistant/message). */
-function eventsToChatMessages(events) {
+export function eventsToChatMessages(events) {
   const out = []
   for (const ev of events || []) {
     if (!ev || !ev.type) continue
@@ -157,7 +159,7 @@ function eventsToChatMessages(events) {
   return out
 }
 
-function mergeChatMessages(persisted, live) {
+export function mergeChatMessages(persisted, live) {
   if (!live || !live.length) return persisted || []
   if (!persisted || !persisted.length) return live
   if (live.length >= persisted.length) return live
@@ -165,7 +167,7 @@ function mergeChatMessages(persisted, live) {
 }
 
 /** One-line latest assistant text from persisted session events. */
-function latestAssistantLine(events) {
+export function latestAssistantLine(events) {
   const msgs = eventsToChatMessages(events)
   for (let i = msgs.length - 1; i >= 0; i--) {
     const m = msgs[i]

@@ -1,5 +1,5 @@
 // Thin fetch wrapper over the host /pomasa endpoints. No DSH client modules needed.
-function createApi() {
+export function createApi() {
   async function request(path, opts) {
     const res = await fetch(path, Object.assign({}, opts, {
       headers: Object.assign({ 'Content-Type': 'application/json' }, (opts && opts.headers) || {}),

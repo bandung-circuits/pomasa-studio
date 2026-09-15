@@ -1,6 +1,9 @@
 // NativeConversationSeat — visual dock of DSH ConversationRoot into chat part (no appendChild).
+import { psHierarchyStyle } from '../hierachy/stack.js'
+import { subagentClient } from '../subagent-manager/store.js'
+import { getSessionsService } from '../util.js'
 
-const nativeConversationState = {
+export const nativeConversationState = {
   savedSelection: null,
   dockedEl: null,
   savedInline: null,
@@ -68,7 +71,7 @@ function dockConversationRoot(el, rect) {
   if (typeof document !== 'undefined') document.body.classList.add('ps-native-conversation-docked')
 }
 
-function undockConversationRoot() {
+export function undockConversationRoot() {
   const el = nativeConversationState.dockedEl
   if (el && nativeConversationState.savedInline) {
     restoreInlineStyles(el, nativeConversationState.savedInline)
@@ -87,7 +90,7 @@ function saveSessionSelection(sessionsSvc) {
   }
 }
 
-function restoreSessionSelection(sessionsSvc, saved) {
+export function restoreSessionSelection(sessionsSvc, saved) {
   if (!sessionsSvc || !saved) return
   try {
     if (saved.address && typeof sessionsSvc.openSubagent === 'function') {
@@ -115,7 +118,7 @@ function openNativeSession(sessionsSvc, bind) {
   } catch { /* ignore */ }
 }
 
-function buildNativeBind(info, agentKey, subCache, loc) {
+export function buildNativeBind(info, agentKey, subCache, loc) {
   if (!info || !info.sessionId) return null
   const sid = info.sessionId
   const isOrch = !agentKey || agentKey === 'orchestrator'
@@ -133,7 +136,7 @@ function buildNativeBind(info, agentKey, subCache, loc) {
   }
 }
 
-function NativeConversationSeat(props) {
+export function NativeConversationSeat(props) {
   const { active, bind } = props
   const seatRef = React.useRef(null)
   const sessionsSvc = getSessionsService()

@@ -1,6 +1,7 @@
 // TemporaryWindow — anchored popover; portaled to body; closes on outside click / Escape.
+import { psHierarchyProps, psOverlayRoot } from '../hierachy/stack.js'
 
-function TemporaryWindow(props) {
+export function TemporaryWindow(props) {
   const {
     anchorRef,
     open,
