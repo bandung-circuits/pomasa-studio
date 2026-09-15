@@ -66,9 +66,6 @@ export const taskManager = {
     actionBus.on('layout.boot', () => this.reset())
     actionBus.on('mas.open', () => this.refresh())
     actionBus.on('mas.created', () => this.refresh())
-    actionBus.on('task.open', () => this.refresh())
-    actionBus.on('task.refresh', () => this.refresh())
-    actionBus.on('unit.new', (p) => this.addUnit(p && p.kind, p && p.key))
     actionBus.on('task.new', (p) => this.addTask(p && p.unitKey))
     actionBus.on('unit.prompt', () => this.promptAddUnit())
     actionBus.on('unit.delete.ask', (p) => this.confirmDeleteUnit(p))
@@ -83,6 +80,7 @@ export const taskManager = {
   },
   reset() {
     this.stopPoll()
+    this._lastTriple = null
     this.descriptor = null
     this.generated = null
     this.units = []
@@ -98,6 +96,10 @@ export const taskManager = {
   onLocatorChange() {
     const loc = locators.snapshot()
     if (!loc.masId) { this.reset(); return }
+    // agentKey-only changes are canvas selection — no refetch needed
+    const triple = loc.masId + '|' + loc.unitKey + '|' + loc.taskKey
+    if (triple === this._lastTriple) return
+    this._lastTriple = triple
     // stop() invalidates any in-flight fetch for the previous locator
     this.stopPoll()
     this.startPoll()
@@ -171,10 +173,11 @@ export const taskManager = {
   selectTask(unitKey, taskKey) {
     this.stageSel = 0
     this.selectedArtifact = null
+    // locators.set drives the refetch (onLocatorChange); task.open notifies
+    // cross-module listeners (file-reader clears its viewer)
     locators.set({ unitKey, taskKey, agentKey: null })
     actionBus.emit('task.open', { masId: locators.masId, unitKey, taskKey })
     this.bump()
-    this.refresh()
   },
   selectAgent(agentKey) {
     const key = String(agentKey || '')
@@ -189,7 +192,6 @@ export const taskManager = {
     }
     this.selectedArtifact = null
     locators.set({ agentKey: key })
-    actionBus.emit('node.select', { masId: locators.masId, unitKey: locators.unitKey, taskKey: locators.taskKey, agentKey: key })
     this.bump()
   },
   selectStage(pos) {

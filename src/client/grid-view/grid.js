@@ -1,5 +1,4 @@
 // Resizable row/column grid — layout only; sizes persisted via configStore.
-import { actionBus } from '../actions/bus.js'
 import { configStore } from '../configs/store.js'
 import { PartFrame, layoutSlots } from '../parts/slots.js'
 
@@ -81,17 +80,7 @@ function useGridSizes(id) {
   return all[id] || null
 }
 
-let gridBusReady = false
-function ensureGridBus() {
-  if (gridBusReady) return
-  gridBusReady = true
-  actionBus.on('grid.size.change', (payload) => {
-    if (payload && payload.id && payload.sizes) configStore.setGridSizes(payload.id, payload.sizes)
-  })
-}
-
 export function GridView(props) {
-  ensureGridBus()
   const { id, axis, cells, defaults, className, style } = props
   const isRow = axis === 'row'
   const visible = (cells || []).filter((c) => c && !c.hidden)
@@ -133,7 +122,7 @@ export function GridView(props) {
       b.kind = 'flex'
       a.value = Math.max(0.15, d.startA + shift * 4)
       b.value = Math.max(0.15, d.startB - shift * 4)
-      if (id) actionBus.emit('grid.size.change', { id, sizes: next })
+      if (id) configStore.setGridSizes(id, next)
     }
     const onUp = () => finishDrag()
     window.addEventListener('pointermove', onMove)

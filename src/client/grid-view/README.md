@@ -1,7 +1,7 @@
 # grid-view — 可拖拽网格
 
 ## 职责
-`GridView`：横向 `row` / 纵向 `column` 分格、缝上拖拽、`grid.size.change` 事件。
+`GridView`：横向 `row` / 纵向 `column` 分格、缝上拖拽、尺寸直写 configStore。
 `RegionStack` / `RegionGrid`：按 region 渲染 parts（多 part 时自动 column 网格）。
 `WorkStage`：中央列（`work.center`：上节点、下产物）。
 `WorkRightStage`：右栏（`work.right`：Run control / Node chat，可纵向拖拽）。
@@ -13,8 +13,7 @@
 拖拽只调整 **flex 比例**，不在 cell 上设置 `maxHeight`/`maxWidth`；legacy px 持久化会自动迁移为 flex 权重。
 
 ## 事件
-- 发出：`grid.size.change` `{ id, sizes }`
-- 订阅：configs/store 写入偏好
+无（拖拽结果直调 `configStore.setGridSizes`，不经 bus）。
 
 ## Services
 无。

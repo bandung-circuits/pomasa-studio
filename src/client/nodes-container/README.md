@@ -13,9 +13,9 @@
 - 标题栏 **缩放** 按钮（`nodes.zoom`）滑块 50%–200% → `partScrollStore`
 - 标题栏 **展开** 按钮（`nodes.expand`）→ `SecondaryWindow`（`registerSecondaryTitleAction` + `registerSecondaryScroll`）
 - 二级窗口标题栏复用 part 样式，并注册 **缩放**（`nodes.zoom`）
-- 节点选中 → `taskManager.selectAgent` → `locators.agentKey` + `node.select`
+- 节点选中 → `taskManager.selectAgent` → `locators.agentKey`
 - 每 3s 轮询 `subagent.list` 刷新节点「已登记 / 存活」状态
 
 ## 事件
-- 订阅 `node.select`（产物过滤在 `subagent-details`）
+- 产物过滤在 `subagent-details`（按 `locators.agentKey`）
 - 不写入 `pomasa.json`（只读可视化）
