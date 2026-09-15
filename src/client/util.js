@@ -59,10 +59,6 @@ export function prettyJson(content) {
   try { return JSON.stringify(JSON.parse(content), null, 2) } catch (e) { return content }
 }
 
-const sessionDriverRef = { current: null }
-export function setSessionDriver(d) { sessionDriverRef.current = d }
-function getSessionDriver() { return sessionDriverRef.current }
-
 const sessionsServiceRef = { current: null }
 export function setSessionsService(s) { sessionsServiceRef.current = s }
 export function getSessionsService() { return sessionsServiceRef.current }

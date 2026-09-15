@@ -1,5 +1,6 @@
 // NativeConversationSeat — visual dock of DSH ConversationRoot into chat part (no appendChild).
 import { psHierarchyStyle } from '../hierachy/stack.js'
+import { findConversationRoot, setHostBodyClass } from '../services/host-adapter.js'
 import { subagentClient } from '../subagent-manager/store.js'
 import { getSessionsService } from '../util.js'
 
@@ -7,13 +8,6 @@ export const nativeConversationState = {
   savedSelection: null,
   dockedEl: null,
   savedInline: null,
-}
-
-function findConversationRoot() {
-  if (typeof document === 'undefined') return null
-  const scroll = document.querySelector('[data-conversation-scroll]')
-  if (!scroll || !scroll.parentElement) return null
-  return scroll.parentElement
 }
 
 function captureInlineStyles(el) {
@@ -68,7 +62,7 @@ function dockConversationRoot(el, rect) {
   el.style.margin = '0'
   el.style.pointerEvents = 'auto'
   el.style.visibility = 'visible'
-  if (typeof document !== 'undefined') document.body.classList.add('ps-native-conversation-docked')
+  setHostBodyClass('ps-native-conversation-docked', true)
 }
 
 export function undockConversationRoot() {
@@ -78,7 +72,7 @@ export function undockConversationRoot() {
   }
   nativeConversationState.dockedEl = null
   nativeConversationState.savedInline = null
-  if (typeof document !== 'undefined') document.body.classList.remove('ps-native-conversation-docked')
+  setHostBodyClass('ps-native-conversation-docked', false)
 }
 
 function saveSessionSelection(sessionsSvc) {

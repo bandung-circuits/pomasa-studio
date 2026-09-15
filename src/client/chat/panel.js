@@ -5,6 +5,7 @@ import { NativeConversationSeat, buildNativeBind, nativeConversationState, resto
 import { t } from '../i18n.js'
 import { useLocators } from '../locators/context.js'
 import { getServices } from '../services/index.js'
+import { setHostBodyClass } from '../services/host-adapter.js'
 import { getDesignSessionSnapshot, isStudioDesignMode, studioModeRef, useDesignSession, useStudioMode } from '../studio-mode/store.js'
 import { refreshSubagentInfo, subagentClient, useSubagentClient } from '../subagent-manager/store.js'
 import { getSessionsService, useNodesExpandOpen, useWorkbenchOpen } from '../util.js'
@@ -84,11 +85,9 @@ export function AgentChatPanel() {
   const active = !!(workbenchOpen && loc.masId && bind && !expandOpen)
 
   React.useEffect(() => {
-    if (typeof document === 'undefined') return undefined
     const locked = !isDesign && orchAlive && workbenchOpen && bind && !expandOpen
-    if (locked) document.body.classList.add('ps-native-composer-locked')
-    else document.body.classList.remove('ps-native-composer-locked')
-    return () => { document.body.classList.remove('ps-native-composer-locked') }
+    setHostBodyClass('ps-native-composer-locked', locked)
+    return () => setHostBodyClass('ps-native-composer-locked', false)
   }, [isDesign, orchAlive, workbenchOpen, bindKey, expandOpen])
 
   React.useEffect(() => {
