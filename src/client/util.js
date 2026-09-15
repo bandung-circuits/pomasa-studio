@@ -158,3 +158,16 @@ function mergeChatMessages(persisted, live) {
   if (live.length >= persisted.length) return live
   return persisted
 }
+
+/** One-line latest assistant text from persisted session events. */
+function latestAssistantLine(events) {
+  const msgs = eventsToChatMessages(events)
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const m = msgs[i]
+    if (m.role === 'assistant' && m.text) return String(m.text).replace(/\s+/g, ' ').trim()
+  }
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    if (msgs[i].text) return String(msgs[i].text).replace(/\s+/g, ' ').trim()
+  }
+  return ''
+}

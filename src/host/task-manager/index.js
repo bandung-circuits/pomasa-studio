@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { loadDescriptor } from '../data/descriptor.js'
 import { masDir } from '../paths/index.js'
+import { revealInFileManager } from '../file-system/reveal.js'
 import {
   unitListing,
   unitState,
@@ -12,6 +13,8 @@ import {
   createTaskDir,
   renameTask,
   removeTask,
+  resolveTaskRoot,
+  workspacePath,
   DEFAULT_UNIT,
   LEGACY_TASK,
 } from './state.js'
@@ -19,6 +22,7 @@ import {
 export function createHostTaskManager(deps) {
   const { config, home, sessions, runner } = deps
   const { isAgentAlive } = sessions
+  const revealFn = deps.revealInFileManager || revealInFileManager
 
   function masRoot(masId) {
     return masDir(home(), masId)
@@ -147,6 +151,28 @@ export function createHostTaskManager(deps) {
     return runner.getRunLog(masId, unitKey || DEFAULT_UNIT, taskKey || LEGACY_TASK)
   }
 
+  function resolveUnitDir(masId, unitKey) {
+    const unit = String(unitKey || DEFAULT_UNIT)
+    const workspace = workspacePath(config, masId)
+    const unitDir = path.join(workspace, unit)
+    if (fs.existsSync(unitDir)) return unitDir
+    if (unit === DEFAULT_UNIT && fs.existsSync(workspace)) return workspace
+    fs.mkdirSync(unitDir, { recursive: true })
+    return unitDir
+  }
+
+  async function revealEntry(masId, unitKey, taskKey) {
+    const descriptor = loadDescriptor(masRoot(masId))
+    if (!descriptor) return { ok: false, code: 400, error: 'mas not generated yet' }
+    const task = taskKey == null ? '' : String(taskKey || '')
+    if (task) {
+      const resolved = resolveTaskRoot(config, masId, unitKey || DEFAULT_UNIT, task)
+      if (!resolved) return { ok: false, code: 404, error: 'task not found' }
+      return revealFn(resolved.root)
+    }
+    return revealFn(resolveUnitDir(masId, unitKey))
+  }
+
   return {
     unitList,
     unitStateFor,
@@ -159,5 +185,6 @@ export function createHostTaskManager(deps) {
     readArtifactEntry,
     readBlueprint,
     runLog,
+    revealEntry,
   }
 }

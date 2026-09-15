@@ -45,6 +45,7 @@ const ROUTES = [
   'subagent.info',
   'agent.log',
   'design.start',
+  'fs.reveal',
 ]
 
 export function apply(ctx, config = {}) {
@@ -66,7 +67,7 @@ export function apply(ctx, config = {}) {
   const agentCreator = createAgentCreator(ctx, { workspace, config })
   const runner = createTaskRunner({ config, home, sessions, subMgr, agentCreator })
 
-  const catalog = createCatalog({ config, home, sessions, creator, runner, subMgr, agentCreator })
+  const catalog = createCatalog({ config, home, sessions, creator, runner, subMgr, agentCreator, revealInFileManager: config.revealInFileManager })
   const { handleApi } = catalog
 
   const disposers = ROUTES.map((r) =>

@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import * as fsx from '../file-system/index.js'
+import { fileManagerLabel } from '../file-system/reveal.js'
 import { loadDescriptor } from '../data/descriptor.js'
 import { loadRegistry, saveRegistry } from './registry.js'
 import { masDir, pomasaHome } from '../paths/index.js'
@@ -64,7 +65,12 @@ export function createMasManager(deps) {
       if (m.lastGenSessionId) sessionsList.push(m.lastGenSessionId)
       for (const sid of Object.values(m.lastRunSessionIds || {})) if (sid) sessionsList.push(sid)
     }
-    return { ok: true, home: home(), sessions: sessionsList }
+    return {
+      ok: true,
+      home: home(),
+      sessions: sessionsList,
+      host: { platform: process.platform, fileManager: fileManagerLabel() },
+    }
   }
 
   return {

@@ -19,7 +19,7 @@ function WorkLayout() {
   const middleCells = generating
     ? [{ key: 'center', className: 'ps-work-stage', content: stage, resizable: false }]
     : [
-        { key: 'left', className: 'ps-work-side', content: h(WorkLeftStage, null), resizable: true },
+        { key: 'left', className: 'ps-work-side', content: h(RegionStack, { region: 'work.left' }), resizable: true },
         { key: 'center', className: 'ps-work-stage', content: stage, resizable: true },
         { key: 'right', className: 'ps-work-side', content: h(WorkRightStage, null), resizable: true },
       ]

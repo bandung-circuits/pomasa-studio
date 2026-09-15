@@ -10,7 +10,7 @@ const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const CLIENT_DIR = path.join(ROOT, 'src/client')
 const ASSETS_DIR = path.join(ROOT, 'assets')
 
-const ICON_NAMES = ['info', 'back', 'settings', 'blueprint', 'chat', 'output', 'pomasa', 'send', 'add', 'zoom', 'expand']
+const ICON_NAMES = ['info', 'back', 'settings', 'blueprint', 'chat', 'output', 'pomasa', 'send', 'add', 'zoom', 'expand', 'switch']
 
 export const CLIENT_BUNDLE_FILES = [
   'util.js',
@@ -20,6 +20,7 @@ export const CLIENT_BUNDLE_FILES = [
   'meme.js',
   'hierachy/stack.js',
   'studio-mode/store.js',
+  'dialogue/queue.js',
   'studio-mode/panel.js',
   'scrollbox/box.js',
   'temporary-window/window.js',
@@ -35,7 +36,6 @@ export const CLIENT_BUNDLE_FILES = [
   'services/index.js',
   'parts/slots.js',
   'grid-view/grid.js',
-  'dialogue/queue.js',
   'menu-service/registry.js',
   'menu-service/menu.js',
   'boot-sign/sign.js',

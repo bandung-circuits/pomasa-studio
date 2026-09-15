@@ -6,9 +6,9 @@ import { DEFAULT_UNIT, LEGACY_TASK } from './task-manager/state.js'
 import { masDir } from './paths/index.js'
 
 export function createCatalog(deps) {
-  const { config, home, sessions, creator, runner, subMgr, agentCreator } = deps
+  const { config, home, sessions, creator, runner, subMgr, agentCreator, revealInFileManager } = deps
   const masMgr = createMasManager({ config, home, sessions, creator })
-  const taskMgr = createHostTaskManager({ config, home, sessions, runner })
+  const taskMgr = createHostTaskManager({ config, home, sessions, runner, revealInFileManager })
 
   async function handleApi(req, res) {
     const u = new URL(req.url, 'http://x')
@@ -212,6 +212,20 @@ export function createCatalog(deps) {
           String(body.unit || body.unitKey || DEFAULT_UNIT),
           String(body.task || body.taskKey || ''),
           { permanent: body.permanent === true },
+        )
+        if (!r.ok) return jsonResponse(res, r.code || 400, r)
+        return jsonResponse(res, 200, r)
+      }
+
+      if (sub === '/fs.reveal' && req.method === 'POST') {
+        const body = await readBody(req)
+        const masId = String(body.masId || '')
+        if (!masMgr.hasMas(masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
+        const hasTask = body.task != null || body.taskKey != null
+        const r = await taskMgr.revealEntry(
+          masId,
+          String(body.unit || body.unitKey || DEFAULT_UNIT),
+          hasTask ? String(body.task || body.taskKey || '') : null,
         )
         if (!r.ok) return jsonResponse(res, r.code || 400, r)
         return jsonResponse(res, 200, r)

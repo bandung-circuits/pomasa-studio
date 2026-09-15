@@ -231,15 +231,6 @@ function RegionGrid(props) {
   return h(GridView, { id: gridId, axis, cells, defaults: sizeDefaults })
 }
 
-function WorkLeftStage() {
-  return h(RegionGrid, {
-    region: 'work.left',
-    gridId: 'work.left',
-    axis: 'column',
-    defaults: [6, 1],
-  })
-}
-
 function WorkStage() {
   return h(RegionGrid, {
     region: 'work.center',

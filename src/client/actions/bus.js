@@ -1,8 +1,8 @@
 // Global action bus — cross-component events with optional parent/child propagation.
 
 const ACTION_CHILDREN = {
-  'mas.open': ['layout.work', 'task.open'],
-  'mas.created': ['layout.work', 'generation.track'],
+  'mas.open': [],
+  'mas.created': [],
   'unit.new': ['task.refresh'],
   'unit.delete': ['task.refresh'],
   'unit.rename': ['task.refresh'],

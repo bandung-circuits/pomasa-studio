@@ -119,13 +119,6 @@ function registerStudioSlots() {
     render: () => h(TaskTree, null),
   })
   layoutSlots.register({
-    id: 'studio-mode',
-    region: 'work.left',
-    order: 1,
-    title: () => t('mode.label'),
-    render: () => h(StudioModePanel, null),
-  })
-  layoutSlots.register({
     id: 'nodes-container',
     region: 'work.center',
     order: 0,

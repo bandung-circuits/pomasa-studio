@@ -37,6 +37,11 @@ function createApi() {
     taskCreate: (masId, unitKey) => request('/pomasa/task.create', { method: 'POST', body: JSON.stringify({ masId, unit: unitKey || 'default' }) }),
     taskRename: (masId, unitKey, taskKey, newKey) => request('/pomasa/task.rename', { method: 'POST', body: JSON.stringify({ masId, unit: unitKey || 'default', task: taskKey, newKey }) }),
     taskRemove: (masId, unitKey, taskKey, permanent = false) => request('/pomasa/task.remove', { method: 'POST', body: JSON.stringify({ masId, unit: unitKey || 'default', task: taskKey, permanent: !!permanent }) }),
+    fsReveal: (masId, unitKey, taskKey) => request('/pomasa/fs.reveal', { method: 'POST', body: JSON.stringify({
+      masId,
+      unit: unitKey || 'default',
+      ...(taskKey != null && taskKey !== '' ? { task: taskKey } : {}),
+    }) }),
     exportMd: (content, format) => fetch('/pomasa/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, format }) }).then((r) => (r.ok ? r.blob() : null)),
     createMas: (fields) => request('/pomasa/mas.create', { method: 'POST', body: JSON.stringify(fields) }),
     recordSession: (masId, kind, unitKey, taskKey, sessionId, agentKey) => request('/pomasa/record', { method: 'POST', body: JSON.stringify({

@@ -21,6 +21,7 @@ const { unitRoots, plannedUnits, unitListing, unitState, readArtifact, createTas
 const { buildUserInput } = await import(path.join(ROOT, 'src/host/MAS-creator/prompt.js'))
 const { ensurePomasaHome, templatePomasaHome } = await import(path.join(ROOT, 'src/runtime/bootstrap.js'))
 const { packagedSkillDir } = await import(path.join(ROOT, 'src/host/paths/index.js'))
+const { buildRevealCommand, fileManagerLabel, revealInFileManager } = await import(path.join(ROOT, 'src/host/file-system/reveal.js'))
 const { apply } = await import(path.join(ROOT, 'src/host/apply.js'))
 
 /* ---------------- mini runner ---------------- */
@@ -665,6 +666,25 @@ test('L2 lifecycle: create prepares a prompt; /record drives generating; complet
   const demo2 = list.json.mas.find((m) => m.id === 'demo2')
   assert.equal(demo2.status, 'idle')
   assert.equal(demo2.unitCount, 1) // single mode: one unit (the workspace root)
+})
+
+test('L2 generation.log: returns assistant events for progress polling', async () => {
+  const home = tempHome()
+  const { ctx, routes, persistenceStore } = mockCtx()
+  apply(ctx, { pomasaHome: home })
+  await call(routes, '/pomasa/mas.create', 'POST', { projectId: 'glog', topic: 't' })
+  persistenceStore.set('gen-sid-1', {
+    meta: { id: 'gen-sid-1' },
+    events: [
+      { type: 'user/message', data: { content: [{ type: 'text', text: 'start' }] } },
+      { type: 'assistant/message', data: { message: { content: [{ type: 'text', text: 'Building orchestrator blueprint…' }] } } },
+    ],
+  })
+  await call(routes, '/pomasa/record', 'POST', { masId: 'glog', kind: 'gen', sessionId: 'gen-sid-1' })
+  const log = await call(routes, '/pomasa/generation.log?masId=glog')
+  assert.equal(log.json.ok, true)
+  assert.equal(log.json.log.sessionId, 'gen-sid-1')
+  assert.ok(log.json.log.events.some((e) => e.type === 'assistant/message'))
 })
 
 test('L2 lifecycle: unit state + artifact read + traversal guard', async () => {
@@ -1352,6 +1372,64 @@ test('L2 blueprint.read: reads within MAS root, rejects escapes', async () => {
   const fb = await call(routes, '/pomasa/blueprint.read?masId=bp&path=agents/unlinked.md&stage=1')
   assert.equal(fb.code, 200)
   assert.match(fb.json.content, /概览蓝图/)
+})
+
+test('L1 fs.reveal: platform command mapping', () => {
+  assert.equal(fileManagerLabel('darwin'), 'Finder')
+  assert.equal(fileManagerLabel('win32'), 'Explorer')
+  assert.equal(fileManagerLabel('linux'), 'file manager')
+  const target = path.join('/tmp', 'pomasa-unit')
+  assert.deepEqual(buildRevealCommand(target, 'darwin'), { cmd: 'open', args: ['-R', target], fileManager: 'Finder' })
+  assert.deepEqual(buildRevealCommand(target, 'win32'), { cmd: 'explorer', args: [`/select,${target}`], fileManager: 'Explorer' })
+  assert.equal(buildRevealCommand(target, 'linux').cmd, 'xdg-open')
+})
+
+test('L1 fs.reveal: exec hook receives resolved path', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pomasa-reveal-'))
+  const calls = []
+  const r = await revealInFileManager(dir, {
+    platform: 'darwin',
+    exec: async (cmd, args) => { calls.push({ cmd, args }) },
+  })
+  assert.equal(r.ok, true)
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0].cmd, 'open')
+  assert.deepEqual(calls[0].args, ['-R', dir])
+  fs.rmSync(dir, { recursive: true, force: true })
+})
+
+test('L2 fs.reveal: resolves unit/task dirs and rejects missing task', async () => {
+  const home = tempHome()
+  const revealed = []
+  const { ctx, routes } = mockCtx()
+  apply(ctx, {
+    pomasaHome: home,
+    revealInFileManager: async (target) => {
+      revealed.push(target)
+      return { ok: true, path: target, fileManager: 'Finder', platform: 'darwin' }
+    },
+  })
+  writeMas(home, 'demo', SINGLE_DESCRIPTOR, { run: SINGLE_RUN, files: SINGLE_FILES })
+  const workspace = path.join(home, 'demo', 'workspace')
+  assert.ok(fs.existsSync(path.join(workspace, 'run.json')))
+
+  const unit = await call(routes, '/pomasa/fs.reveal', 'POST', { masId: 'demo', unit: 'default' })
+  assert.equal(unit.code, 200)
+  assert.equal(unit.json.ok, true)
+  assert.equal(revealed[0], workspace)
+
+  revealed.length = 0
+  const task = await call(routes, '/pomasa/fs.reveal', 'POST', { masId: 'demo', unit: 'default', task: 'legacy' })
+  assert.equal(task.code, 200)
+  assert.equal(task.json.ok, true)
+  assert.equal(revealed[0], workspace)
+
+  const miss = await call(routes, '/pomasa/fs.reveal', 'POST', { masId: 'demo', unit: 'default', task: 'ghost-task' })
+  assert.equal(miss.code, 404)
+  assert.match(miss.json.error, /not found/)
+
+  const ghost = await call(routes, '/pomasa/fs.reveal', 'POST', { masId: 'ghost', unit: 'default' })
+  assert.equal(ghost.code, 404)
 })
 
 await main()

@@ -147,7 +147,7 @@ function registerTreeMenus() {
         { id: 'add', label: t('task.new'), action: 'task.new', payload: { unitKey: p && p.unitKey } },
         { id: 'rename', label: t('menu.rename'), action: 'unit.rename.pre', disabled: isDefault },
         { id: 'delete', label: t('menu.delete'), action: 'unit.delete.ask', danger: true, disabled: isDefault },
-        { id: 'reveal', label: t('menu.reveal'), action: 'unit.reveal' },
+        { id: 'reveal', label: revealMenuLabel(), action: 'unit.reveal' },
       ]
     },
   })
@@ -160,7 +160,7 @@ function registerTreeMenus() {
       return [
         { id: 'rename', label: t('menu.rename'), action: 'task.rename.pre', disabled: legacy },
         { id: 'delete', label: t('menu.delete'), action: 'task.delete.ask', danger: true, disabled: legacy },
-        { id: 'reveal', label: t('menu.reveal'), action: 'task.reveal' },
+        { id: 'reveal', label: revealMenuLabel(), action: 'task.reveal' },
       ]
     },
   })

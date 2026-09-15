@@ -68,6 +68,8 @@ const taskManager = {
     actionBus.on('task.delete.ask', (p) => this.confirmDeleteTask(p))
     actionBus.on('task.delete', (p) => this.removeTask(p && p.unitKey, p && p.taskKey, p && p.permanent))
     actionBus.on('task.rename', (p) => this.renameTask(p && p.unitKey, p && p.taskKey, p && p.newKey))
+    actionBus.on('unit.reveal', (p) => this.revealUnit(p && p.unitKey))
+    actionBus.on('task.reveal', (p) => this.revealTask(p && p.unitKey, p && p.taskKey))
     this.onLocatorChange()
   },
   reset() {
@@ -327,6 +329,25 @@ const taskManager = {
     })
     if (choice === 'soft') actionBus.emit('task.delete', { ...p, permanent: false })
     if (choice === 'hard') actionBus.emit('task.delete', { ...p, permanent: true })
+  },
+  async revealUnit(unitKey) {
+    const u = String(unitKey || 'default')
+    if (!this.api || !locators.masId) return
+    const r = await this.api.fsReveal(locators.masId, u)
+    if (!r.ok) {
+      this.notice = { kind: 'err', text: r.error || t('menu.reveal.fail') }
+      this.bump()
+    }
+  },
+  async revealTask(unitKey, taskKey) {
+    const u = String(unitKey || 'default')
+    const tid = String(taskKey || '')
+    if (!tid || !this.api || !locators.masId) return
+    const r = await this.api.fsReveal(locators.masId, u, tid)
+    if (!r.ok) {
+      this.notice = { kind: 'err', text: r.error || t('menu.reveal.fail') }
+      this.bump()
+    }
   },
   setBusy(v) { this.busy = !!v; this.bump() },
   setNotice(n) { this.notice = n; this.bump() },

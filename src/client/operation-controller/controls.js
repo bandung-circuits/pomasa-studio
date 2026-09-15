@@ -56,8 +56,7 @@ function OperationController() {
             : h(psBtn, { primary: true, disabled: runDisabled, style: runBtnStyle, onClick: handleRun }, t('run'))),
         designMode
           ? h(DisabledRunButton, { label: t('task.new.run'), style: { width: '100%' } })
-          : h(psBtn, { ghost: true, disabled: runDisabled, style: { width: '100%' }, onClick: handleNewTaskRun }, t('task.new.run')),
-        h('div', { className: 'ps-muted', style: { marginTop: 16, fontSize: 12.5, lineHeight: 1.55 } }, t('run.control.hint')),
+          : h(psBtn, { ghost: true, disabled: runDisabled, style: { width: '100%' }, onClick: handleNewTaskRun }, t('task.new.run'))
       ),
     ),
   )

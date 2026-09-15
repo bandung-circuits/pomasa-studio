@@ -26,6 +26,7 @@ function WorkTitleBarSlot() {
       caption ? h('span', { className: 'ps-title-caption' }, caption) : null,
     ),
     h('span', { className: 'spacer', style: { flex: 1 } }),
+    h(StudioModeSwitchBtn, null),
     h(psIconBtn, { icon: 'settings', onClick: () => actionBus.emit('settings.open', {}), title: t('settings.title') }),
   )
 }

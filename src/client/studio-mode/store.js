@@ -1,4 +1,7 @@
-// Studio mode — execute vs design (MAS-root design session).
+// Studio mode — execute (0) vs design (1); picker in title bar.
+
+const MODE_EXECUTE = 0
+const MODE_DESIGN = 1
 
 const studioModeRef = {
   mode: 'execute',
@@ -8,8 +11,11 @@ const studioModeRef = {
   subs: new Set(),
   emit() { for (const fn of this.subs) fn() },
   subscribe(fn) { this.subs.add(fn); return () => { this.subs.delete(fn) } },
-  setMode(mode) {
-    this.mode = mode === 'design' ? 'design' : 'execute'
+  modeIndex() {
+    return this.mode === 'design' ? MODE_DESIGN : MODE_EXECUTE
+  },
+  setModeIndex(idx) {
+    this.mode = idx === MODE_DESIGN ? 'design' : 'execute'
     this.emit()
   },
   setDesign(payload) {
@@ -32,6 +38,14 @@ const studioModeRef = {
   },
 }
 
+const modePickerRef = {
+  open: false,
+  subs: new Set(),
+  emit() { for (const fn of this.subs) fn() },
+  subscribe(fn) { this.subs.add(fn); return () => { this.subs.delete(fn) } },
+  setOpen(v) { this.open = !!v; this.emit() },
+}
+
 let designSessionSnapshot = null
 let designSessionSnapshotSig = ''
 
@@ -47,7 +61,6 @@ function designSessionSig() {
   ].join('\0')
 }
 
-/** Stable reference for useSyncExternalStore — new object only when values change. */
 function getDesignSessionSnapshot() {
   const sig = designSessionSig()
   if (designSessionSnapshot && designSessionSnapshotSig === sig) return designSessionSnapshot
@@ -73,6 +86,18 @@ function useStudioMode() {
   return v
 }
 
+function useStudioModeIndex() {
+  if (typeof React.useSyncExternalStore === 'function') {
+    return React.useSyncExternalStore(
+      studioModeRef.subscribe.bind(studioModeRef),
+      () => studioModeRef.modeIndex(),
+    )
+  }
+  const [v, setV] = React.useState(studioModeRef.modeIndex())
+  React.useEffect(() => studioModeRef.subscribe(() => setV(studioModeRef.modeIndex())), [])
+  return v
+}
+
 function useDesignSession() {
   if (typeof React.useSyncExternalStore === 'function') {
     return React.useSyncExternalStore(
@@ -86,6 +111,23 @@ function useDesignSession() {
   return v
 }
 
+function useModePickerOpen() {
+  if (typeof React.useSyncExternalStore === 'function') {
+    return React.useSyncExternalStore(
+      modePickerRef.subscribe.bind(modePickerRef),
+      () => modePickerRef.open,
+    )
+  }
+  const [v, setV] = React.useState(modePickerRef.open)
+  React.useEffect(() => modePickerRef.subscribe(() => setV(modePickerRef.open)), [])
+  return v
+}
+
 function isStudioDesignMode() {
   return studioModeRef.mode === 'design'
+}
+
+function resetStudioMode() {
+  studioModeRef.reset()
+  modePickerRef.setOpen(false)
 }

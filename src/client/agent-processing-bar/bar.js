@@ -31,10 +31,9 @@ function GenerationPanel(props) {
       h('div', { className: 'ps-muted', style: { marginTop: 8 } }, failed
         ? t('gen.card.failed.body')
         : stillWorking
-          ? t('gen.card.working.body')
+          ? t('gen.card.working.placeholder')
           : t('gen.card.idle.body')),
       h('div', { className: 'ps-caption', style: { marginTop: 10 } }, t('gen.status.caption') + str(gs)),
-      stillWorking ? h('div', { className: 'ps-caption', style: { marginTop: 14 } }, t('gen.session.hint')) : null,
     ),
   )
 }

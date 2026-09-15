@@ -93,6 +93,7 @@ export function apply(ctx) {
           onRun: (masId, unitKey, taskKey, prompt, agentKey) => driveSession('run', masId, unitKey, taskKey, prompt, agentKey),
           onFollowupExisting: (sessionId, prompt) => followupSession(sessionId, prompt),
           onCancelRun: (masId) => cancelRunSession(masId),
+          onCancelGeneration: (masId) => cancelGenSession(masId),
           onGeneration: (masId, prompt) => driveSession('gen', masId, 'default', null, prompt, 'orchestrator'),
           sessionDriver,
         }),
@@ -137,6 +138,7 @@ export function apply(ctx) {
   }
 
   const lastRunSession = new Map()
+  const lastGenSession = new Map()
 
   async function cancelRunSession(masId) {
     const sid = lastRunSession.get(masId)
@@ -148,6 +150,20 @@ export function apply(ctx) {
         await bound.session.cancel()
       }
     } catch { /* best-effort */ }
+    return { ok: true }
+  }
+
+  async function cancelGenSession(masId) {
+    const sid = lastGenSession.get(masId)
+    if (!sid) return { ok: true }
+    try {
+      const sessionsSvc = ctx.get('sessions')
+      const bound = sessionsSvc && typeof sessionsSvc.binding === 'function' ? sessionsSvc.binding(sid) : null
+      if (bound && bound.session && typeof bound.session.cancel === 'function') {
+        await bound.session.cancel()
+      }
+    } catch { /* best-effort */ }
+    lastGenSession.delete(masId)
     return { ok: true }
   }
 
@@ -217,6 +233,7 @@ export function apply(ctx) {
       })
     } catch { /* best-effort */ }
     if (kind === 'run') lastRunSession.set(masId, sessionId)
+    if (kind === 'gen') lastGenSession.set(masId, sessionId)
     try { pomasaDiag(ctx, 'drive:ok') } catch { /* ignore */ }
     return { ok: true, sessionId }
   }
