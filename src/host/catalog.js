@@ -10,237 +10,94 @@ export function createCatalog(deps) {
   const masMgr = createMasManager({ config, home, sessions, creator, registry })
   const taskMgr = createHostTaskManager({ config, home, sessions, runner, revealInFileManager })
 
-  async function handleApi(req, res) {
-    const u = new URL(req.url, 'http://x')
-    const sub = u.pathname.replace(API_BASE, '')
-    const q = parseQuery(u.search)
-    try {
-      if (sub === '/mas.list') {
-        return jsonResponse(res, 200, await masMgr.listMas())
-      }
-
-      if (sub === '/meta' && req.method === 'GET') {
-        return jsonResponse(res, 200, masMgr.meta())
-      }
-
-      if (sub === '/mas.get' && req.method === 'GET') {
-        const r = masMgr.getMas(q.masId)
-        if (!r.ok) return jsonResponse(res, r.code || 404, r)
-        return jsonResponse(res, 200, r)
-      }
-
-      if (sub === '/generation.status' && req.method === 'GET') {
-        if (!masMgr.hasMas(q.masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
-        return jsonResponse(res, 200, await creator.getGenerationStatus(q.masId))
-      }
-
-      if (sub === '/unit.list' && req.method === 'GET') {
-        if (!masMgr.hasMas(q.masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
-        return jsonResponse(res, 200, await taskMgr.unitList(q.masId))
-      }
-
-      if (sub === '/unit.state' && req.method === 'GET') {
-        if (!masMgr.hasMas(q.masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
-        return jsonResponse(res, 200, await taskMgr.unitStateFor(q.masId, q.unit, q.task, masMgr))
-      }
-
-      if (sub === '/artifact.read' && req.method === 'GET') {
-        if (!masMgr.hasMas(q.masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
-        const r = taskMgr.readArtifactEntry(q.masId, q.unit, q.task, q.path, q.head === '1', firstHeading)
-        return jsonResponse(res, 200, r)
-      }
-
-      if (sub === '/blueprint.read' && req.method === 'GET') {
-        if (!masMgr.hasMas(q.masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
-        const r = taskMgr.readBlueprint(q.masId, q.path, q.stage)
-        if (!r.ok) return jsonResponse(res, r.code || 400, r)
-        return jsonResponse(res, 200, r)
-      }
-
-      if (sub === '/run.log' && req.method === 'GET') {
-        if (!masMgr.hasMas(q.masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
-        const result = await taskMgr.runLog(q.masId, q.unit, q.task)
-        if (!result.ok) return jsonResponse(res, result.code || 400, result)
-        return jsonResponse(res, 200, result)
-      }
-
-      if (sub === '/generation.log' && req.method === 'GET') {
-        if (!masMgr.hasMas(q.masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
-        return jsonResponse(res, 200, await creator.getGenerationLog(q.masId))
-      }
-
-      if (sub === '/mas.create' && req.method === 'POST') {
-        const body = await readBody(req)
-        const r = await creator.createMas(body)
-        if (!r.ok) return jsonResponse(res, 400, r)
-        return jsonResponse(res, 200, r)
-      }
-
-      if (sub === '/run.start' && req.method === 'POST') {
-        const body = await readBody(req)
-        const r = await runner.startRun(body, masMgr.hasMas.bind(masMgr))
-        if (!r.ok) return jsonResponse(res, 400, r)
-        return jsonResponse(res, 200, r)
-      }
-
-      if (sub === '/design.start' && req.method === 'POST') {
-        const body = await readBody(req)
-        const masId = String(body.masId || '')
-        if (!masMgr.hasMas(masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
-        const masRootPath = masDir(home(), masId)
-        const r = await agentCreator.ensureDesignAgent({ masId, masRoot: masRootPath })
-        if (!r.ok) return jsonResponse(res, 400, r)
-        return jsonResponse(res, 200, r)
-      }
-
-      if (sub === '/run.intervene' && req.method === 'POST') {
-        const body = await readBody(req)
-        const r = runner.handleRunIntervene(body)
-        if (!r.ok) return jsonResponse(res, r.code || 400, r)
-        return jsonResponse(res, 200, r)
-      }
-
-      if (sub === '/run.cancel' && req.method === 'POST') {
-        const body = await readBody(req)
-        return jsonResponse(res, 200, runner.handleRunCancel(body))
-      }
-
-      if (sub === '/record' && req.method === 'POST') {
-        const body = await readBody(req)
-        const r = sessions.recordSession(body, masMgr.hasMas.bind(masMgr))
-        if (!r.ok) return jsonResponse(res, r.code || 400, r)
-        return jsonResponse(res, 200, r)
-      }
-
-      if (sub === '/subagent.list' && req.method === 'GET') {
-        if (!masMgr.hasMas(q.masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
+  // Declarative route table — HTTP → manager forwarding only.
+  //   mas: 'query'|'body'  404 guard: q.masId / body.masId must name a known MAS
+  //   pass: true           always answer 200 with the handler result as-is
+  //   errCode              fallback status when the result is { ok: false } without a code
+  //   raw: true            handler writes the response itself (binary export)
+  const ROUTES = [
+    { method: 'GET', path: '/mas.list', pass: true, run: () => masMgr.listMas() },
+    { method: 'GET', path: '/meta', pass: true, run: () => masMgr.meta() },
+    { method: 'GET', path: '/mas.get', errCode: 404, run: (q) => masMgr.getMas(q.masId) },
+    { method: 'GET', path: '/generation.status', mas: 'query', pass: true, run: (q) => creator.getGenerationStatus(q.masId) },
+    { method: 'GET', path: '/unit.list', mas: 'query', pass: true, run: (q) => taskMgr.unitList(q.masId) },
+    { method: 'GET', path: '/unit.state', mas: 'query', pass: true, run: (q) => taskMgr.unitStateFor(q.masId, q.unit, q.task, masMgr) },
+    { method: 'GET', path: '/artifact.read', mas: 'query', pass: true, run: (q) => taskMgr.readArtifactEntry(q.masId, q.unit, q.task, q.path, q.head === '1', firstHeading) },
+    { method: 'GET', path: '/blueprint.read', mas: 'query', run: (q) => taskMgr.readBlueprint(q.masId, q.path, q.stage) },
+    { method: 'GET', path: '/run.log', mas: 'query', run: (q) => taskMgr.runLog(q.masId, q.unit, q.task) },
+    { method: 'GET', path: '/generation.log', mas: 'query', pass: true, run: (q) => creator.getGenerationLog(q.masId) },
+    {
+      method: 'GET', path: '/subagent.list', mas: 'query',
+      run: async (q) => {
         const declared = subMgr.listDeclared(q.masId)
-        if (!declared.ok) return jsonResponse(res, declared.code || 400, declared)
+        if (!declared.ok) return declared
         const alive = await subMgr.listAlive(q.masId, q.unit || DEFAULT_UNIT, q.task || LEGACY_TASK)
-        return jsonResponse(res, 200, { ok: true, agents: declared.agents, alive: alive.agents || {} })
-      }
+        return { ok: true, agents: declared.agents, alive: alive.agents || {} }
+      },
+    },
+    { method: 'GET', path: '/subagent.info', mas: 'query', errCode: 404, run: (q) => subMgr.getInfo(q.masId, q.agentKey, q.unit || DEFAULT_UNIT, q.task || LEGACY_TASK) },
+    { method: 'GET', path: '/agent.log', mas: 'query', errCode: 404, run: (q) => subMgr.getAgentLog(q.masId, q.agentKey, q.unit || DEFAULT_UNIT, q.task || LEGACY_TASK) },
 
-      if (sub === '/subagent.info' && req.method === 'GET') {
-        if (!masMgr.hasMas(q.masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
-        const r = await subMgr.getInfo(q.masId, q.agentKey, q.unit || DEFAULT_UNIT, q.task || LEGACY_TASK)
-        if (!r.ok) return jsonResponse(res, r.code || 404, r)
-        return jsonResponse(res, 200, r)
-      }
-
-      if (sub === '/agent.log' && req.method === 'GET') {
-        if (!masMgr.hasMas(q.masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
-        const r = await subMgr.getAgentLog(q.masId, q.agentKey, q.unit || DEFAULT_UNIT, q.task || LEGACY_TASK)
-        if (!r.ok) return jsonResponse(res, r.code || 404, r)
-        return jsonResponse(res, 200, r)
-      }
-
-      if (sub === '/export' && req.method === 'POST') {
-        const body = await readBody(req)
-        if (body.format !== 'docx') return jsonResponse(res, 400, { ok: false, error: 'only docx export is available (PDF was removed in 0.2.2)' })
-        const content = String(body.content || '')
+    { method: 'POST', path: '/mas.create', run: (q, b) => creator.createMas(b) },
+    { method: 'POST', path: '/run.start', run: (q, b) => runner.startRun(b, masMgr.hasMas.bind(masMgr)) },
+    {
+      method: 'POST', path: '/design.start', mas: 'body',
+      run: (q, b) => agentCreator.ensureDesignAgent({ masId: String(b.masId || ''), masRoot: masDir(home(), String(b.masId || '')) }),
+    },
+    { method: 'POST', path: '/run.intervene', run: (q, b) => runner.handleRunIntervene(b) },
+    { method: 'POST', path: '/run.cancel', pass: true, run: (q, b) => runner.handleRunCancel(b) },
+    { method: 'POST', path: '/record', run: (q, b) => sessions.recordSession(b, masMgr.hasMas.bind(masMgr)) },
+    {
+      method: 'POST', path: '/export', raw: true,
+      run: async (q, b, res) => {
+        if (b.format !== 'docx') return jsonResponse(res, 400, { ok: false, error: 'only docx export is available (PDF was removed in 0.2.2)' })
         try {
-          const buf = await mdToDocx(content)
+          const buf = await mdToDocx(String(b.content || ''))
           res.writeHead(200, {
             'content-type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             'content-disposition': 'attachment; filename="pomasa.docx"',
           })
           res.end(Buffer.isBuffer(buf) ? buf : Buffer.from(buf))
-          return
         } catch (e) {
-          res.writeHead(500, { 'content-type': 'application/json; charset=utf-8' })
-          res.end(JSON.stringify({ ok: false, error: 'export failed: ' + String((e && e.message) || e) }))
-          return
+          jsonResponse(res, 500, { ok: false, error: 'export failed: ' + String((e && e.message) || e) })
         }
-      }
+      },
+    },
+    { method: 'POST', path: '/unit.add', mas: 'body', run: (q, b) => taskMgr.addUnitEntry(String(b.masId || ''), String(b.key || '').trim().toLowerCase(), String(b.kind || 'default').trim().toLowerCase()) },
+    { method: 'POST', path: '/task.create', mas: 'body', run: (q, b) => taskMgr.createTask(String(b.masId || ''), String(b.unit || b.unitKey || DEFAULT_UNIT)) },
+    { method: 'POST', path: '/unit.rename', mas: 'body', run: (q, b) => taskMgr.renameUnitEntry(String(b.masId || ''), String(b.unit || b.unitKey || ''), String(b.newKey || b.key || '')) },
+    { method: 'POST', path: '/unit.remove', mas: 'body', run: (q, b) => taskMgr.removeUnitEntry(String(b.masId || ''), String(b.unit || b.unitKey || ''), { permanent: b.permanent === true }) },
+    { method: 'POST', path: '/task.rename', mas: 'body', run: (q, b) => taskMgr.renameTaskEntry(String(b.masId || ''), String(b.unit || b.unitKey || DEFAULT_UNIT), String(b.task || b.taskKey || ''), String(b.newKey || b.taskId || '')) },
+    { method: 'POST', path: '/task.remove', mas: 'body', run: (q, b) => taskMgr.removeTaskEntry(String(b.masId || ''), String(b.unit || b.unitKey || DEFAULT_UNIT), String(b.task || b.taskKey || ''), { permanent: b.permanent === true }) },
+    {
+      method: 'POST', path: '/fs.reveal', mas: 'body',
+      run: (q, b) => {
+        const hasTask = b.task != null || b.taskKey != null
+        return taskMgr.revealEntry(String(b.masId || ''), String(b.unit || b.unitKey || DEFAULT_UNIT), hasTask ? String(b.task || b.taskKey || '') : null)
+      },
+    },
+    { method: 'POST', path: '/mas.delete', errCode: 404, run: (q, b) => masMgr.deleteMas(String(b.masId || ''), { permanent: b.permanent === true }) },
+  ]
 
-      if (sub === '/unit.add' && req.method === 'POST') {
-        const body = await readBody(req)
-        const masId = String(body.masId || '')
+  async function handleApi(req, res) {
+    const u = new URL(req.url, 'http://x')
+    const sub = u.pathname.replace(API_BASE, '')
+    const route = ROUTES.find((r) => r.path === sub && r.method === req.method)
+    if (!route) return jsonResponse(res, 404, { ok: false, error: 'not found' })
+    try {
+      const q = parseQuery(u.search)
+      const body = route.method === 'POST' ? await readBody(req) : undefined
+      if (route.mas) {
+        const masId = route.mas === 'query' ? q.masId : String(body.masId || '')
         if (!masMgr.hasMas(masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
-        const r = taskMgr.addUnitEntry(masId, String(body.key || '').trim().toLowerCase(), String(body.kind || 'default').trim().toLowerCase())
-        if (!r.ok) return jsonResponse(res, r.code || 400, r)
-        return jsonResponse(res, 200, r)
       }
-
-      if (sub === '/task.create' && req.method === 'POST') {
-        const body = await readBody(req)
-        const masId = String(body.masId || '')
-        if (!masMgr.hasMas(masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
-        const r = taskMgr.createTask(masId, String(body.unit || body.unitKey || DEFAULT_UNIT))
-        if (!r.ok) return jsonResponse(res, r.code || 400, r)
-        return jsonResponse(res, 200, r)
-      }
-
-      if (sub === '/unit.rename' && req.method === 'POST') {
-        const body = await readBody(req)
-        const masId = String(body.masId || '')
-        if (!masMgr.hasMas(masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
-        const r = taskMgr.renameUnitEntry(masId, String(body.unit || body.unitKey || ''), String(body.newKey || body.key || ''))
-        if (!r.ok) return jsonResponse(res, r.code || 400, r)
-        return jsonResponse(res, 200, r)
-      }
-
-      if (sub === '/unit.remove' && req.method === 'POST') {
-        const body = await readBody(req)
-        const masId = String(body.masId || '')
-        if (!masMgr.hasMas(masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
-        const r = taskMgr.removeUnitEntry(masId, String(body.unit || body.unitKey || ''), { permanent: body.permanent === true })
-        if (!r.ok) return jsonResponse(res, r.code || 400, r)
-        return jsonResponse(res, 200, r)
-      }
-
-      if (sub === '/task.rename' && req.method === 'POST') {
-        const body = await readBody(req)
-        const masId = String(body.masId || '')
-        if (!masMgr.hasMas(masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
-        const r = taskMgr.renameTaskEntry(
-          masId,
-          String(body.unit || body.unitKey || DEFAULT_UNIT),
-          String(body.task || body.taskKey || ''),
-          String(body.newKey || body.taskId || ''),
-        )
-        if (!r.ok) return jsonResponse(res, r.code || 400, r)
-        return jsonResponse(res, 200, r)
-      }
-
-      if (sub === '/task.remove' && req.method === 'POST') {
-        const body = await readBody(req)
-        const masId = String(body.masId || '')
-        if (!masMgr.hasMas(masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
-        const r = taskMgr.removeTaskEntry(
-          masId,
-          String(body.unit || body.unitKey || DEFAULT_UNIT),
-          String(body.task || body.taskKey || ''),
-          { permanent: body.permanent === true },
-        )
-        if (!r.ok) return jsonResponse(res, r.code || 400, r)
-        return jsonResponse(res, 200, r)
-      }
-
-      if (sub === '/fs.reveal' && req.method === 'POST') {
-        const body = await readBody(req)
-        const masId = String(body.masId || '')
-        if (!masMgr.hasMas(masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
-        const hasTask = body.task != null || body.taskKey != null
-        const r = await taskMgr.revealEntry(
-          masId,
-          String(body.unit || body.unitKey || DEFAULT_UNIT),
-          hasTask ? String(body.task || body.taskKey || '') : null,
-        )
-        if (!r.ok) return jsonResponse(res, r.code || 400, r)
-        return jsonResponse(res, 200, r)
-      }
-
-      if (sub === '/mas.delete' && req.method === 'POST') {
-        const body = await readBody(req)
-        const r = masMgr.deleteMas(String(body.masId || ''), { permanent: body.permanent === true })
-        if (!r.ok) return jsonResponse(res, r.code || 404, r)
-        return jsonResponse(res, 200, r)
-      }
-
-      return jsonResponse(res, 404, { ok: false, error: 'not found' })
+      if (route.raw) return await route.run(q, body, res)
+      const r = await route.run(q, body)
+      if (!route.pass && r && r.ok === false) return jsonResponse(res, r.code || route.errCode || 400, r)
+      return jsonResponse(res, 200, r)
     } catch (err) {
-      return jsonResponse(res, 500, { ok: false, error: String(err?.message || err) })
+      const code = typeof err?.code === 'number' ? err.code : 500
+      return jsonResponse(res, code, { ok: false, error: String(err?.message || err) })
     }
   }
 

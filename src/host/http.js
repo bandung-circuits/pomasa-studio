@@ -1,6 +1,3 @@
-import fs from 'node:fs'
-import os from 'node:os'
-import path from 'node:path'
 import { randomUUID } from 'node:crypto'
 
 export const API_BASE = '/pomasa'
@@ -11,26 +8,6 @@ export function promptMessage(text) {
     role: 'user',
     content: [{ type: 'text', text }],
     source: { kind: 'plugin', plugin: 'pomasa-studio' },
-  }
-}
-
-export function defaultModel() {
-  try {
-    const home = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
-    const txt = fs.readFileSync(path.join(home, 'settings.yaml'), 'utf8')
-    const block = txt.match(/agent-default-model:\s*\n((?:[ \t].*\n)*)/)
-    if (!block) return null
-    let model = null
-    let provider = null
-    for (const line of block[1].split('\n')) {
-      const pm = line.match(/^\s*model:\s*["']?([^\s"']+)/)
-      if (pm) model = pm[1]
-      const pv = line.match(/^\s*provider:\s*["']?([^\s"']+)/)
-      if (pv) provider = pv[1]
-    }
-    return model ? { model, ...(provider ? { provider } : {}) } : null
-  } catch {
-    return null
   }
 }
 
@@ -50,7 +27,14 @@ export function jsonResponse(res, code, obj) {
 export async function readBody(req) {
   let data = ''
   for await (const chunk of req) data += chunk
-  return data ? JSON.parse(data) : {}
+  if (!data) return {}
+  try {
+    return JSON.parse(data)
+  } catch {
+    const err = new Error('invalid JSON body')
+    err.code = 400
+    throw err
+  }
 }
 
 /** First heading (H1) of a markdown artifact, used as the file's own title. */
