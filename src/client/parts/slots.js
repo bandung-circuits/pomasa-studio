@@ -9,36 +9,11 @@ import { psHierarchyMainProps } from '../hierachy/stack.js'
 import { t } from '../i18n.js'
 import { NodesContainer } from '../nodes-container/stages.js'
 import { OperationController } from '../operation-controller/controls.js'
+import { partTitleActions } from './title-actions.js'
 import { SubagentDetailsPanel } from '../subagent-details/artifacts.js'
 import { currentStage, taskManager } from '../task-manager/store.js'
 import { TaskTree } from '../task-tree/tree.js'
 import { str } from '../util.js'
-
-// Lazily created: tree.js/zoom.js/expand.js register at module scope, and this
-// module imports them back for composition — under ESM that cycle runs their
-// bodies before this module's top-level statements.
-let titleActionRegistry = null
-function titleActionsMap() {
-  if (!titleActionRegistry) titleActionRegistry = new Map()
-  return titleActionRegistry
-}
-
-export function registerTitleAction(spec) {
-  const { partId, id, order = 0, render } = spec || {}
-  if (!partId || !id || !render) return
-  const registry = titleActionsMap()
-  if (!registry.has(partId)) registry.set(partId, [])
-  const list = registry.get(partId)
-  const entry = { id, order, render }
-  const i = list.findIndex((x) => x.id === id)
-  if (i >= 0) list[i] = entry
-  else list.push(entry)
-  list.sort((a, b) => a.order - b.order)
-}
-
-function partTitleActions(partId) {
-  return (titleActionsMap().get(partId) || []).slice()
-}
 
 function PartTitleBar(props) {
   const actions = partTitleActions(props.partId)

@@ -4,6 +4,8 @@ import { psEmpty } from '../components.js'
 import { t } from '../i18n.js'
 import { useLocators } from '../locators/context.js'
 import { NodesContainerScrollWrap } from './scroll.js'
+// Side effect: registers the nodes-container title actions (expand + zoom).
+import './expand.js'
 import { WorkflowCanvas } from '../orchestrator/row.js'
 import { getServices } from '../services/index.js'
 import { subscribeMasEvents } from '../services/event-stream.js'

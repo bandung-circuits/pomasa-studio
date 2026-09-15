@@ -4,7 +4,7 @@ import path from 'node:path'
 const SNAPSHOT_LIMIT = 5000
 
 function defaultIgnore(name) {
-  return name.startsWith('.')
+  return name.startsWith('.') || name === 'node_modules'
 }
 
 /** Recursive `${path}:${mtimeMs}:${size}` snapshot of root, ignore-filtered, capped. */

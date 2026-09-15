@@ -2,7 +2,7 @@
 import { PsButton } from '../buttons/button.js'
 import { useHierarchyBase } from '../hierachy/stack.js'
 import { t } from '../i18n.js'
-import { registerTitleAction } from '../parts/slots.js'
+import { registerTitleAction } from '../parts/title-actions.js'
 import { partScrollStore, usePartScrollScale } from '../scrollbox/box.js'
 import { TemporaryWindow } from '../temporary-window/window.js'
 
