@@ -9,7 +9,7 @@ export const configStore = {
   subscribe(fn) { this.subs.add(fn); return () => { this.subs.delete(fn) } },
 }
 
-function configSubscribe(fn) { return configStore.subscribe(fn) }
+export function configSubscribe(fn) { return configStore.subscribe(fn) }
 function configGetLang() { return configStore.getLang() }
 
 export function useConfigLang() {

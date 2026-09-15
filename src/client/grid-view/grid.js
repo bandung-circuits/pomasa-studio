@@ -72,7 +72,7 @@ Object.assign(configStore, {
   },
 })
 
-function gridSizesSubscribe(fn) { return configStore.subscribe(fn) }
+export function gridSizesSubscribe(fn) { return configStore.subscribe(fn) }
 function gridSizesSnapshot() { return configStore._gridSizes }
 
 function useGridSizes(id) {

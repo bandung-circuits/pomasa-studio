@@ -33,7 +33,7 @@ function ArtifactCard(props) {
   )
 }
 
-function stageContractCards(stage, unit, api, openArtifact, artifact, onHead) {
+export function stageContractCards(stage, unit, api, openArtifact, artifact, onHead) {
   if (!stage) return null
   if (!stage.contracts || !stage.contracts.length) {
     return h(psEmpty, { title: t('stage.no.contract'), hint: t('stage.no.contract.hint', { t: str(stage.title) }) })

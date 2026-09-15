@@ -15,6 +15,7 @@
     "skill/",
     "pomasa-home/",
     "scripts/bundle-client.mjs",
+    "scripts/react-shim.js",
     "cordis.patch.yml",
     "README.md"
   ],

@@ -14,13 +14,21 @@ import { currentStage, taskManager } from '../task-manager/store.js'
 import { TaskTree } from '../task-tree/tree.js'
 import { str } from '../util.js'
 
-const titleActionRegistry = new Map()
+// Lazily created: tree.js/zoom.js/expand.js register at module scope, and this
+// module imports them back for composition — under ESM that cycle runs their
+// bodies before this module's top-level statements.
+let titleActionRegistry = null
+function titleActionsMap() {
+  if (!titleActionRegistry) titleActionRegistry = new Map()
+  return titleActionRegistry
+}
 
 export function registerTitleAction(spec) {
   const { partId, id, order = 0, render } = spec || {}
   if (!partId || !id || !render) return
-  if (!titleActionRegistry.has(partId)) titleActionRegistry.set(partId, [])
-  const list = titleActionRegistry.get(partId)
+  const registry = titleActionsMap()
+  if (!registry.has(partId)) registry.set(partId, [])
+  const list = registry.get(partId)
   const entry = { id, order, render }
   const i = list.findIndex((x) => x.id === id)
   if (i >= 0) list[i] = entry
@@ -29,7 +37,7 @@ export function registerTitleAction(spec) {
 }
 
 function partTitleActions(partId) {
-  return (titleActionRegistry.get(partId) || []).slice()
+  return (titleActionsMap().get(partId) || []).slice()
 }
 
 function PartTitleBar(props) {

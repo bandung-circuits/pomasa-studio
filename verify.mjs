@@ -23,6 +23,7 @@ const { ensurePomasaHome, templatePomasaHome } = await import(path.join(ROOT, 's
 const { packagedSkillDir } = await import(path.join(ROOT, 'src/host/paths/index.js'))
 const { buildRevealCommand, fileManagerLabel, revealInFileManager } = await import(path.join(ROOT, 'src/host/file-system/reveal.js'))
 const { apply } = await import(path.join(ROOT, 'src/host/apply.js'))
+const { buildClient } = await import(path.join(ROOT, 'scripts/bundle-client.mjs'))
 
 /* ---------------- mini runner ---------------- */
 let passed = 0
@@ -1028,7 +1029,7 @@ test('L2 client bundle: loads and registers footer startup + shell.overlay', () 
   const stylesSrc = fs.readFileSync(path.join(ROOT, 'src/client/styles.js'), 'utf8')
   assert.match(stylesSrc, /export const CSS = `/)
   assert.equal(stylesSrc.split('`').length, 3, 'styles.js CSS template must contain exactly one backtick pair')
-  assert.match(src, /const CSS = `/)
+  assert.match(src, /\bCSS = `/)
   assert.match(src, /@media \(max-width: 820px\)/)
   assert.match(src, /\.ps-shell-panel/)
   // markdown-it is esbuild-inlined as the __psMd engine; the hand-rolled
@@ -1092,7 +1093,7 @@ test('L2 client bundle: loads and registers footer startup + shell.overlay', () 
   assert.equal(registrations[1].name, 'shell.overlay')
   assert.ok(!registrations.some((r) => r.name === 'conversation.view'), 'the in-session tab was removed')
   assert.match(src, /registerStartupButton/)
-  assert.match(src, /'data-ps-startup': 'pomasa-studio'/)
+  assert.match(src, /["']data-ps-startup["']: ["']pomasa-studio["']/)
 })
 
 async function findPnpmReact() {
@@ -1107,41 +1108,35 @@ async function findPnpmReact() {
   return { React, SSR: ReactDOMServer }
 }
 
-function buildClientSource(names) {
-  const strip = (src) => src
-    .replace(/^export const inject = .*$/m, '')
-    .replace(/^export function apply/m, 'function apply')
-    .replace(/^export async function /gm, 'async function ')
-    .replace(/^export function /gm, 'function ')
-    .replace(/^export const /gm, 'const ')
-    .replace(/^export let /gm, 'let ')
-    .replace(/^export var /gm, 'var ')
-    .replace(/^export class /gm, 'class ')
-    .replace(/^export \{[^}]+\}\s*;?\s*$/gm, '')
-    .replace(/^import .+ from .+;?\s*$/gm, '')
-  return names.map((n) => strip(fs.readFileSync(path.join(ROOT, 'src/client', n), 'utf8'))).join('\n')
-}
-
 test('L2 client renders with real React (guards positional-children bugs)', async () => {
   const react = await findPnpmReact()
   if (!react) {
     console.log('    (skip: react not found under ../deepseek-harness .pnpm)')
     return
   }
-  const clientFiles = [
-    'util.js', 'api.js', 'md.js', 'i18n.js', 'meme.js', 'components.js',
-    'actions/bus.js', 'locators/context.js', 'configs/store.js', 'services/index.js',
-    'parts/slots.js', 'grid-view/grid.js', 'dialogue/queue.js', 'boot-sign/sign.js', 'basic-title-area/title.js',
-    'settings/panel.js', 'MAS-list/list.js', 'MAS-creator/form.js', 'file-reader/modals.js',
-    'subagent-details/artifacts.js', 'task-manager/store.js', 'task-tree/tree.js',
-    'operation-controller/controls.js', 'nodes-container/stages.js', 'agent-processing-bar/bar.js',
-    'workbench/boundary.js', 'layout/boot.js', 'layout/work.js', 'workbench/app.js', 'pages.js',
-  ]
-  const src = buildClientSource(clientFiles) +
-    '\nglobalThis.__ps = { MasList, BootLayout, CreateMas, MasDetail, WorkPage, WorkLayout, renderMarkdown, psEmpty, stageContractCards, locators, __lang: langStore };'
-  const ctx = vm.createContext({ React: react.React, window: {}, URL, setTimeout, clearTimeout })
-  vm.runInContext('var h = React.createElement;\n' + src, ctx)
-  const ps = ctx.__ps
+  // Same esbuild pipeline as lib/client.js, but the testing entry re-exports
+  // every symbol under test — the import graph is the single file list.
+  const outfile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'pomasa-test-bundle-')), 'client.js')
+  await buildClient({ entry: path.join(ROOT, 'src/client/testing/exports.js'), outfile })
+  const src = fs.readFileSync(outfile, 'utf8')
+  let ps = null
+  const ctx = vm.createContext({
+    window: {
+      addEventListener() {},
+      __ModuleLoader__: {
+        load(cfg) {
+          ps = cfg.factory((name) => {
+            if (name === 'react') return react.React
+            if (name === 'react-dom') return { createPortal: (n) => n }
+            throw new Error('unexpected require: ' + name)
+          })
+        },
+      },
+    },
+    URL, setTimeout, clearTimeout,
+  })
+  vm.runInContext(src, ctx)
+  assert.ok(ps, 'test bundle did not register via __ModuleLoader__')
   const api = { listMas: () => Promise.resolve({ ok: true, mas: [] }) }
 
   const listHtml = react.SSR.renderToString(react.React.createElement(ps.MasList, { api, onOpen: () => {}, onListChange: () => {} }))
@@ -1168,34 +1163,34 @@ test('L2 client renders with real React (guards positional-children bugs)', asyn
 
   // Regression: useSyncExternalStore bare-calls subscribe — wrappers must not throw
   assert.doesNotThrow(() => {
-    const unsub = configSubscribe(() => {})
+    const unsub = ps.configSubscribe(() => {})
     assert.equal(typeof unsub, 'function')
     unsub()
   })
   assert.doesNotThrow(() => {
-    const unsub = dialogueSubscribe(() => {})
+    const unsub = ps.dialogueSubscribe(() => {})
     assert.equal(typeof unsub, 'function')
     unsub()
   })
-  assert.doesNotThrow(() => react.SSR.renderToString(react.React.createElement(SettingsPanel, { onClose: () => {} })))
-  assert.doesNotThrow(() => react.SSR.renderToString(react.React.createElement(DialogueHost)))
+  assert.doesNotThrow(() => react.SSR.renderToString(react.React.createElement(ps.SettingsPanel, { onClose: () => {} })))
+  assert.doesNotThrow(() => react.SSR.renderToString(react.React.createElement(ps.DialogueHost)))
 
   assert.doesNotThrow(() => {
-    const unsub = gridSizesSubscribe(() => {})
+    const unsub = ps.gridSizesSubscribe(() => {})
     assert.equal(typeof unsub, 'function')
     unsub()
   })
-  assert.doesNotThrow(() => react.SSR.renderToString(react.React.createElement(GridView, {
+  assert.doesNotThrow(() => react.SSR.renderToString(react.React.createElement(ps.GridView, {
     id: 'test.grid',
     axis: 'row',
     cells: [{ key: 'a', content: react.React.createElement('div', null, 'a') }],
     defaults: [1],
   })))
-  assert.doesNotThrow(() => react.SSR.renderToString(react.React.createElement(PartFrame, { title: 'T' }, 'body')))
+  assert.doesNotThrow(() => react.SSR.renderToString(react.React.createElement(ps.PartFrame, { title: 'T' }, 'body')))
   assert.doesNotMatch(bootHtml, /ps-work-bottom/)
 
   // bilingual: flipping the language store re-renders the chrome in English
-  ps.__lang.set('en')
+  ps.langStore.set('en')
   const enBootHtml = react.SSR.renderToString(react.React.createElement(ps.BootLayout, {
     api,
     onOpenMas: () => {},
@@ -1207,7 +1202,7 @@ test('L2 client renders with real React (guards positional-children bugs)', asyn
   assert.match(enBootHtml, /New/)
   assert.match(enBootHtml, /Settings/)
   assert.doesNotMatch(enBootHtml, /新建 MAS/)
-  ps.__lang.set('zh')
+  ps.langStore.set('zh')
 
   const createHtml = react.SSR.renderToString(react.React.createElement(ps.CreateMas, { api, onCancel: () => {}, onDone: () => {} }))
   assert.match(createHtml, /研究主题与核心问题/)

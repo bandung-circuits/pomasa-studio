@@ -17,7 +17,7 @@ const dialogueQueue = {
 
 const progressDialogOpen = new Map()
 
-function dialogueSubscribe(fn) { return dialogueQueue.subscribe(fn) }
+export function dialogueSubscribe(fn) { return dialogueQueue.subscribe(fn) }
 function dialoguePeek() { return dialogueQueue.peek() }
 
 export function deleteDialog(opts) {
