@@ -1,1 +1,0 @@
-background realization of settings

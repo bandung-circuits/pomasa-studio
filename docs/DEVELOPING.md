@@ -14,10 +14,14 @@
 ## 结构
 
 ```
-src/client/         浏览器侧（scripts/bundle-client.mjs 拼接）
-  actions/          事件总线
+src/client/         浏览器侧（esbuild 打包：scripts/bundle-client.mjs → lib/client.js）
+  actions/          事件总线（规则：store 直调优先，bus 仅跨模块副作用通知）
   locators/         masId / unitKey / taskKey / agentKey
   layout/           boot / work 壳 + grid-view
+  panel.js          workbench panel（shell.overlay 挂载、sidebar 对齐）
+  session-driver.js dsh session 创建/追问/取消 + /pomasa/record 回写
+  workspace-bootstrap.js  POMASA workspace 入账（重试）
+  services/host-adapter.js  唯一宿主耦合层（ctx 探测、宿主 DOM、body class）
   task-manager/     轮询 store（client）
   task-tree/        左栏 unit→task 树
   dialogue/         确认 / 删除三按钮对话框
@@ -28,33 +32,34 @@ src/host/
   paths/            pluginDir、pomasaHome、masDir、taskDir（唯一路径入口）
   file-system/      读写删 + file.change 事件
   logs/             插件目录 logs/host.log
-  services/         后台事件总线
+  services/         后台事件总线（三期保留：file.change 推送通道，今无订阅方）
   session-registry.js  gen/run 会话 Map、/record、isAgentAlive
   workspace.js      POMASA workspace 入账
-  catalog.js        HTTP → manager 薄转发
-  MAS-manager/      mas list/get/delete（软/硬）、registry
+  catalog.js        HTTP → manager 薄转发（路由表驱动）
+  MAS-manager/      mas list/get/delete（软/硬）、registry（单一写入者 store）
   MAS-creator/      mas.create、generation.*、prompt
   task-manager/     unit/task CRUD、unit.list/state（host）
   task-runner/      run.start、run.*
   agent-creator/    ctx.agents.create 预建 + standby seed（cwd=任务根）
   report-exporter/  docx 导出
-  settings/         后台 settings 占位
+  config/default-model.js  DSH settings.yaml 默认模型解析
   data/descriptor.js  pomasa.json 解析
-  data/graph.js       工作流图推导（orchestrator 行 + stage 节点）
+  data/graph.js       工作流图 host 薄封装（fs 探测注入）
   core/skill.js       POMASA skill 快照（仅此）
   subagent-manager/   listDeclared / warmPrompt / listAlive / getInfo
-  file-monitor/       fs.watch 基类（未挂接）
+  file-monitor/       fs.watch 基类（未挂接，三期保留）
 src/runtime/
   bootstrap.js      ~/.pomasa 模板种子
   mcp-servers.js    MCP 配置读取
-src/extensions/     第三方扩展占位（未加载）
+src/shared/
+  graph.js          工作流图推导（host/client 共享，环境能力注入）
 ```
 
 ## 二期（2026-09-10 已实现）
 
-- **中央画布**：`nodes-container` + `orchestrator/row` + `subagents/node` — 从 `pomasa.json` 推导一行 orchestrator + 阶段子代理，SVG 连线；节点三动作（蓝图 / 产物 / 对话）；`locators.agentKey` + `node.select` / `agent.chat.select`
+- **中央画布**：`nodes-container` + `orchestrator/row` + `subagents/node` — 从 `pomasa.json` 推导一行 orchestrator + 阶段子代理，SVG 连线；节点三动作（蓝图 / 产物 / 对话）；`locators.agentKey` + `agent.chat.select`
 - **运行前预热（三期）**：host [`agent-creator`](src/host/agent-creator/README.md) 在 `run.start` 预建编排器+子代理（cwd=任务根、seed 待机、setup 内 mount/composeFrom）；client 只对编排器 `followup(runPrompt)`
-- **右栏 chat**：`work.right` 为可拖拽 `RegionGrid`（Run / Chat）；`chat/panel` 对齐 ConversationRoot 布局；`sessionDriver.watch` + `sessions.prompt`
+- **右栏 chat**：`work.right` 为可拖拽 `RegionGrid`（Run / Chat）；`chat/panel` 用 NativeConversationSeat 将宿主 ConversationRoot 视觉停靠进面板；`sessions.prompt` 发消息
 - **新 HTTP**：`GET /pomasa/subagent.list`、`GET /pomasa/subagent.info`；`/record` 可选 `agentKey`（默认 `orchestrator`）；registry 扩展 `lastAgentSessionIds[unit|task][agentKey]`
 
 ## 三期路线（未实现）
@@ -106,4 +111,4 @@ desktop profile 采用 pnpm link 方式安装（`link:~/Projects/03.systems/poma
 - 组件渲染时用 `t('key')`，需要重渲染的根组件挂 `useLang()`。
 - 状态文本映射（`MAS_STATUS_TEXT`、`STAGE_STATUS_TEXT`）已改为返回函数，取值处要加调用括号。
 - 表单默认值是 Studio 提供的文字，也进 i18n 字典，且"未被编辑的默认项"会跟随界面语言切换。
-- 新增 bundle 文件记得同步 `scripts/bundle-client.mjs` 与 verify.mjs 的 client 源码清单。
+- 新增 client 模块直接 `import` 即可：esbuild 按 import 图打包（`React`/`ReactDOM`/`h` 为注入全局，无需 import）；verify 的 L2 渲染测试共用同一构建配置，被测符号从 `src/client/testing/exports.js` re-export。

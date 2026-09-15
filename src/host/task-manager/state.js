@@ -334,7 +334,7 @@ export function removeTask(config, masId, unitKey, taskKey, opts = {}) {
   return { ok: true, unitKey: unit, taskId: task, permanent }
 }
 
-/** @deprecated — use resolveTaskRoot */
+/** Flat { key, taskKey, root } listing of every unit task — used by verify L2. */
 export function unitRoots(config, descriptor, masId) {
   const list = unitListing(config, descriptor, masId)
   const out = []

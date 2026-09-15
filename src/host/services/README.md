@@ -1,14 +1,9 @@
-responsible for the events transmission of
-background, and maintain the tree of 
-services to be triggered meanwhile.
+# services (host) — 后台事件总线
 
-For example, if a file system writes a file,
-it will trigger the event of this action.
-Files like config write should trigger the action
-of refreshing frontend.
+host 模块域事件总线：`on(event, fn)` / `emit(event, payload)` / `clear()`。
 
-responsible for the communication 
-with service of frontend(client)
+当前发出方：`file-system` 的 `file.change`（write/remove/rename）。
+当前订阅方：无（client 仍走 3s poll）。
 
-packaging methods of client services and http/websocket.
-So that background can use them as a local function.
+**三期保留**：配合 `file-monitor`，作为「文件变更 → client 刷新」推送通道，
+替代 task-manager 轮询；届时订阅方在 apply 装配。
