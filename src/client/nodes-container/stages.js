@@ -6,6 +6,7 @@ import { useLocators } from '../locators/context.js'
 import { NodesContainerScrollWrap } from './scroll.js'
 import { WorkflowCanvas } from '../orchestrator/row.js'
 import { getServices } from '../services/index.js'
+import { subscribeMasEvents } from '../services/event-stream.js'
 import { refreshSubagentList } from '../subagent-manager/store.js'
 import { useTaskManager } from '../task-manager/store.js'
 import { createPoller } from '../util/poller.js'
@@ -24,8 +25,13 @@ export function NodesContainerBody() {
       setAliveMap(r.alive || {})
     }, 3000)
     poll.trigger()
-    poll.start()
-    return () => poll.stop()
+    // Shares the store's EventSource for this mas; falls back to polling on
+    // hosts without /pomasa/events.
+    const off = subscribeMasEvents(loc.masId, {
+      onChange: () => poll.trigger(),
+      onUnsupported: () => poll.start(),
+    })
+    return () => { off(); poll.stop() }
   }, [api, loc.masId, loc.unitKey, loc.taskKey, tm.generated])
 
   if (tm.generated === false) {

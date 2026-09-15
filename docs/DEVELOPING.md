@@ -32,7 +32,7 @@ src/host/
   paths/            pluginDir、pomasaHome、masDir、taskDir（唯一路径入口）
   file-system/      读写删 + file.change 事件
   logs/             插件目录 logs/host.log
-  services/         后台事件总线（三期保留：file.change 推送通道，今无订阅方）
+  services/         后台事件总线（file.change → file-monitor hub）
   session-registry.js  gen/run 会话 Map、/record、isAgentAlive
   workspace.js      POMASA workspace 入账
   catalog.js        HTTP → manager 薄转发（路由表驱动）
@@ -47,7 +47,7 @@ src/host/
   data/graph.js       工作流图 host 薄封装（fs 探测注入）
   core/skill.js       POMASA skill 快照（仅此）
   subagent-manager/   listDeclared / warmPrompt / listAlive / getInfo
-  file-monitor/       fs.watch 基类（未挂接，三期保留）
+  file-monitor/     策略化监视（watch/poll）+ 窗口节流 + hub（SSE /pomasa/events）
 src/runtime/
   bootstrap.js      ~/.pomasa 模板种子
   mcp-servers.js    MCP 配置读取
@@ -62,9 +62,13 @@ src/shared/
 - **右栏 chat**：`work.right` 为可拖拽 `RegionGrid`（Run / Chat）；`chat/panel` 用 NativeConversationSeat 将宿主 ConversationRoot 视觉停靠进面板；`sessions.prompt` 发消息
 - **新 HTTP**：`GET /pomasa/subagent.list`、`GET /pomasa/subagent.info`；`/record` 可选 `agentKey`（默认 `orchestrator`）；registry 扩展 `lastAgentSessionIds[unit|task][agentKey]`
 
-## 三期路线（未实现）
+## 三期（2026-09-15 已实现）
 
-- file-monitor 替代 task-manager 3s poll
+- **file-monitor 事件推送替代轮询**：[`file-monitor`](src/host/file-monitor/README.md) 策略化监视（watch/poll 自动降级）+ 窗口节流（leading 立即触发、窗口内记 dirty、链式尾随窗口）+ hub 按 mas root 汇聚双事件源（fs 事件 + services 总线 file.change），经 SSE `GET /pomasa/events` 推送；client `services/event-stream.js` 按 masId 共享 EventSource，旧 host 无端点时自动回退原 3s 轮询。task-manager store 与 subagent.list 已改推送
+- **取舍**：MAS-list 保留 HTTP 轮询（home 范围多目录，属「确实大量文件」场景）；dialogue 生成日志轮询不动（对话框生命期内的有界轮询）
+
+## 后续路线（未实现）
+
 - 画布多 orchestrator 纵向多行（数据模型已支持，fixture 仍单行）
 
 ## 验证

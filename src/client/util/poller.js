@@ -24,7 +24,9 @@ export function createPoller(fn, ms) {
       await inflight
     } finally {
       inflight = null
-      if (queued && gen === generation) {
+      // stop() already clears queued, so a queued trigger surviving here was
+      // requested after any stop() — a genuine new request that must run.
+      if (queued) {
         queued = false
         run()
       }

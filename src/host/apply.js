@@ -14,6 +14,7 @@ import { createTaskRunner } from './task-runner/run.js'
 import { createSubagentManager } from './subagent-manager/manager.js'
 import { createAgentCreator } from './agent-creator/create.js'
 import { createCatalog } from './catalog.js'
+import { createWatchHub } from './file-monitor/hub.js'
 
 export const name = 'pomasa-studio'
 export const inject = ['webServer', 'agentLoop', 'tools', 'agents', 'agentPresets']
@@ -47,6 +48,7 @@ const ROUTES = [
   'agent.log',
   'design.start',
   'fs.reveal',
+  'events',
 ]
 
 export function apply(ctx, config = {}) {
@@ -68,8 +70,9 @@ export function apply(ctx, config = {}) {
   const subMgr = createSubagentManager(config, sessions, home, registry)
   const agentCreator = createAgentCreator(ctx, { workspace, config, registry })
   const runner = createTaskRunner({ config, home, sessions, subMgr, agentCreator, registry })
+  const hub = createWatchHub({ config, home })
 
-  const catalog = createCatalog({ config, home, sessions, creator, runner, subMgr, agentCreator, revealInFileManager: config.revealInFileManager, registry })
+  const catalog = createCatalog({ config, home, sessions, creator, runner, subMgr, agentCreator, revealInFileManager: config.revealInFileManager, registry, hub })
   const { handleApi } = catalog
 
   const disposers = ROUTES.map((r) =>

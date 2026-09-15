@@ -6,7 +6,7 @@ import { DEFAULT_UNIT, LEGACY_TASK } from './task-manager/state.js'
 import { masDir } from './paths/index.js'
 
 export function createCatalog(deps) {
-  const { config, home, sessions, creator, runner, subMgr, agentCreator, revealInFileManager, registry } = deps
+  const { config, home, sessions, creator, runner, subMgr, agentCreator, revealInFileManager, registry, hub } = deps
   const masMgr = createMasManager({ config, home, sessions, creator, registry })
   const taskMgr = createHostTaskManager({ config, home, sessions, runner, revealInFileManager })
 
@@ -37,6 +37,7 @@ export function createCatalog(deps) {
     },
     { method: 'GET', path: '/subagent.info', mas: 'query', errCode: 404, run: (q) => subMgr.getInfo(q.masId, q.agentKey, q.unit || DEFAULT_UNIT, q.task || LEGACY_TASK) },
     { method: 'GET', path: '/agent.log', mas: 'query', errCode: 404, run: (q) => subMgr.getAgentLog(q.masId, q.agentKey, q.unit || DEFAULT_UNIT, q.task || LEGACY_TASK) },
+    { method: 'GET', path: '/events', raw: true, run: (q, _b, res, req) => hub.handleEvents(q, res, req) },
 
     { method: 'POST', path: '/mas.create', run: (q, b) => creator.createMas(b) },
     { method: 'POST', path: '/run.start', run: (q, b) => runner.startRun(b, masMgr.hasMas.bind(masMgr)) },
@@ -91,7 +92,7 @@ export function createCatalog(deps) {
         const masId = route.mas === 'query' ? q.masId : String(body.masId || '')
         if (!masMgr.hasMas(masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
       }
-      if (route.raw) return await route.run(q, body, res)
+      if (route.raw) return await route.run(q, body, res, req)
       const r = await route.run(q, body)
       if (!route.pass && r && r.ok === false) return jsonResponse(res, r.code || route.errCode || 400, r)
       return jsonResponse(res, 200, r)

@@ -4,6 +4,7 @@ import { deleteDialog, promptDialog } from '../dialogue/queue.js'
 import { t } from '../i18n.js'
 import { locators } from '../locators/context.js'
 import { getServices } from '../services/index.js'
+import { subscribeMasEvents } from '../services/event-stream.js'
 import { subagentClient } from '../subagent-manager/store.js'
 import { str } from '../util.js'
 import { createPoller } from '../util/poller.js'
@@ -80,6 +81,9 @@ export const taskManager = {
   },
   reset() {
     this.stopPoll()
+    if (this._eventsOff) { this._eventsOff(); this._eventsOff = null }
+    this._eventsMasId = null
+    this._eventsActive = false
     this._lastTriple = null
     this.descriptor = null
     this.generated = null
@@ -96,6 +100,7 @@ export const taskManager = {
   onLocatorChange() {
     const loc = locators.snapshot()
     if (!loc.masId) { this.reset(); return }
+    this.ensureEvents(loc.masId)
     // agentKey-only changes are canvas selection — no refetch needed
     const triple = loc.masId + '|' + loc.unitKey + '|' + loc.taskKey
     if (triple === this._lastTriple) return
@@ -105,7 +110,23 @@ export const taskManager = {
     this.startPoll()
     this.refresh()
   },
+  // Events subscription is keyed by masId only, so task switches never drop
+  // the shared EventSource; the triple above still gates refetches.
+  ensureEvents(masId) {
+    if (this._eventsMasId === masId) return
+    if (this._eventsOff) { this._eventsOff(); this._eventsOff = null }
+    this._eventsMasId = masId
+    this._eventsActive = true
+    this._eventsOff = subscribeMasEvents(masId, {
+      onChange: () => this.refresh(),
+      onUnsupported: () => {
+        this._eventsActive = false
+        if (this.poll) this.poll.start()
+      },
+    })
+  },
   startPoll() {
+    if (this._eventsActive) return
     if (this.poll) this.poll.start()
   },
   stopPoll() {

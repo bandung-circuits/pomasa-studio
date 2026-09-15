@@ -25,6 +25,8 @@ const { buildRevealCommand, fileManagerLabel, revealInFileManager } = await impo
 const { apply } = await import(path.join(ROOT, 'src/host/apply.js'))
 const { buildClient } = await import(path.join(ROOT, 'scripts/bundle-client.mjs'))
 const { createPoller } = await import(path.join(ROOT, 'src/client/util/poller.js'))
+const { createChangeThrottle } = await import(path.join(ROOT, 'src/host/file-monitor/throttle.js'))
+const { createFileMonitor } = await import(path.join(ROOT, 'src/host/file-monitor/monitor.js'))
 
 /* ---------------- mini runner ---------------- */
 let passed = 0
@@ -561,7 +563,12 @@ function mockCtx() {
 }
 
 function mockRes() {
-  const r = { writeHead(code, h) { this.code = code; this.headers = h }, end(body) { this.body = body } }
+  const r = {
+    writes: [],
+    writeHead(code, h) { this.code = code; this.headers = h },
+    write(chunk) { this.writes.push(String(chunk)) },
+    end(body) { this.body = body },
+  }
   return r
 }
 
@@ -1459,6 +1466,103 @@ test('L1 poller: merges in-flight triggers, queues one re-run, stop invalidates'
   gates.shift()()
   await p3
   assert.deepEqual(staleAtEnd, [false, false, true])
+})
+
+test('L1 throttle: leading fire, dirty window, chained trailing windows', () => {
+  // The exact timeline the feature was specified with: t=0 leads, in-window
+  // notifies only mark dirty, a dirty window-end fires and chains a new
+  // window, a clean window-end stops the chain.
+  const fires = []
+  let now = 0
+  const timers = []
+  const fakeSet = (fn, ms) => { const t = { fn, at: now + ms, cleared: false, fired: false }; timers.push(t); return t }
+  const fakeClear = (t) => { t.cleared = true }
+  const th = createChangeThrottle(() => fires.push(now), 3000, { setTimeout: fakeSet, clearTimeout: fakeClear })
+  const advance = (ms) => {
+    now += ms
+    for (const t of timers) {
+      if (!t.cleared && !t.fired && t.at <= now) { t.fired = true; t.fn() }
+    }
+  }
+  th.notify()                       // t=0: leading fire + window opens
+  assert.deepEqual(fires, [0])
+  th.notify()                       // in-window: dirty only
+  th.notify()
+  assert.deepEqual(fires, [0])
+  advance(3000)                     // t=3: dirty -> trailing fire + chained window
+  assert.deepEqual(fires, [0, 3000])
+  advance(1000)
+  th.notify()                       // t=4: dirty again
+  advance(2000)                     // t=6: trailing fire + chained window
+  assert.deepEqual(fires, [0, 3000, 6000])
+  advance(3000)                     // t=9: clean window-end -> chain stops
+  assert.deepEqual(fires, [0, 3000, 6000])
+  th.notify()                       // chain stopped -> leading fire again
+  assert.deepEqual(fires, [0, 3000, 6000, 9000])
+  th.stop()
+})
+
+test('L1 file-monitor: poll strategy detects changes via snapshot diff; dotfiles ignored', async () => {
+  const dir = tempHome()
+  fs.writeFileSync(path.join(dir, 'a.txt'), 'one')
+  const events = []
+  const mon = createFileMonitor(dir, () => events.push(Date.now()), { strategy: 'poll', intervalMs: 20 })
+  mon.watch()
+  try {
+    await new Promise((r) => setTimeout(r, 50))
+    assert.equal(events.length, 0, 'no change yet')
+    fs.writeFileSync(path.join(dir, 'a.txt'), 'two-two') // size + mtime change
+    await new Promise((r) => setTimeout(r, 60))
+    assert.equal(events.length, 1, 'one change burst detected')
+    fs.writeFileSync(path.join(dir, '.hidden'), 'x') // default ignore rule
+    await new Promise((r) => setTimeout(r, 60))
+    assert.equal(events.length, 1, 'dotfile change ignored')
+  } finally {
+    mon.close()
+  }
+})
+
+test('L2 events: SSE streams throttled change events for a mas', async () => {
+  const home = tempHome()
+  const { ctx, routes } = mockCtx()
+  // bus-only (fileWatchMonitor:false) so the test never depends on fs.watch timing
+  apply(ctx, { pomasaHome: home, fileWatchWindowMs: 40, fileWatchMonitor: false })
+  await call(routes, '/pomasa/mas.create', 'POST', { projectId: 'multi', topic: 't', runMode: 'multi' })
+  const root = path.join(home, 'multi')
+  fs.mkdirSync(path.join(root, 'workspace'), { recursive: true })
+  fs.writeFileSync(path.join(root, 'pomasa.json'), JSON.stringify({
+    schema_version: 'obv-1', mas_id: 'multi', name: 'Multi',
+    work: { mode: 'multi', dimensions: ['country'], units: ['brazil'] },
+    stages: [{ index: 1, id: 'scan', title: 'Scan', agent: '01.scanner.md', contracts: [] }],
+  }, null, 2))
+  // open the SSE stream — the handler promise resolves only on req close
+  const handler = routes.get('exact:/pomasa/events')
+  assert.ok(handler, 'events route registered')
+  const req = {
+    url: '/pomasa/events?masId=multi', method: 'GET', _closeFns: [],
+    on(ev, fn) { if (ev === 'close') this._closeFns.push(fn) },
+  }
+  req[Symbol.asyncIterator] = async function* () {}
+  const res = mockRes()
+  const done = handler(req, res)
+  assert.equal(res.code, 200)
+  assert.match(res.headers['content-type'], /text\/event-stream/)
+  assert.ok(res.writes.some((c) => c.includes(': connected')))
+  const dataChunks = () => res.writes.filter((c) => c.startsWith('data:')).length
+  assert.equal(dataChunks(), 0, 'no events before any change')
+  await call(routes, '/pomasa/unit.add', 'POST', { masId: 'multi', key: 'korea', kind: 'country' })
+  await call(routes, '/pomasa/unit.add', 'POST', { masId: 'multi', key: 'japan', kind: 'country' })
+  // back-to-back removes (fsx writes -> bus): first leads one event, rest coalesce
+  await call(routes, '/pomasa/unit.remove', 'POST', { masId: 'multi', unit: 'korea', permanent: true })
+  await call(routes, '/pomasa/unit.remove', 'POST', { masId: 'multi', unit: 'japan', permanent: true })
+  assert.equal(dataChunks(), 1, 'burst coalesced to a single leading event')
+  await new Promise((r) => setTimeout(r, 90))
+  assert.equal(dataChunks(), 2, 'dirty trailing event fires after the window')
+  // missing mas is rejected; close settles the handler promise
+  const bad = await call(routes, '/pomasa/events?masId=nope')
+  assert.equal(bad.code, 404)
+  for (const fn of req._closeFns) fn()
+  await done
 })
 
 await main()
