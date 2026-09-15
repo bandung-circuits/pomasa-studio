@@ -119,14 +119,18 @@ export function createMasCreator(deps) {
       push('tool', { name: 'read', arguments: JSON.stringify({ file: 'SKILL.md' }) })
       push('tool', { name: 'read', arguments: JSON.stringify({ file: 'pattern-catalog/README.md' }) })
       setTimeout(() => {
-        const srcRoot = fileURLToPath(new URL('../../fixtures/mock-generated', import.meta.url))
-        fs.cpSync(srcRoot, root, { recursive: true })
-        const pj = path.join(root, 'pomasa.json')
-        let txt = fs.readFileSync(pj, 'utf8')
-        txt = txt.split('PLACEHOLDER_MAS_ID').join(id).split('MOCK_MAS_NAME').join(body.name || id)
-        fs.writeFileSync(pj, txt)
-        push('tool', { name: 'write', arguments: JSON.stringify({ file: 'agents/00.orchestrator.md' }) })
-        push('message', { role: 'assistant', content: 'MAS 骨架生成完成（mock）：pomasa.json 已写入。' })
+        try {
+          const srcRoot = fileURLToPath(new URL('../../../fixtures/mock-generated', import.meta.url))
+          fs.cpSync(srcRoot, root, { recursive: true })
+          const pj = path.join(root, 'pomasa.json')
+          let txt = fs.readFileSync(pj, 'utf8')
+          txt = txt.split('PLACEHOLDER_MAS_ID').join(id).split('MOCK_MAS_NAME').join(body.name || id)
+          fs.writeFileSync(pj, txt)
+          push('tool', { name: 'write', arguments: JSON.stringify({ file: 'agents/00.orchestrator.md' }) })
+          push('message', { role: 'assistant', content: 'MAS 骨架生成完成（mock）：pomasa.json 已写入。' })
+        } catch (e) {
+          push('message', { role: 'assistant', content: 'mock 生成失败：' + String(e && e.message || e) })
+        }
       }, 3000)
       genSessions.set(id, { agent: null, sessionId: fakeSessionId, fast: true, events, startedAt: Date.now() })
       return { ok: true, masId: id, generation: 'session' }
