@@ -8,6 +8,7 @@ import { WorkflowCanvas } from '../orchestrator/row.js'
 import { getServices } from '../services/index.js'
 import { refreshSubagentList } from '../subagent-manager/store.js'
 import { useTaskManager } from '../task-manager/store.js'
+import { createPoller } from '../util/poller.js'
 
 export function NodesContainerBody() {
   const tm = useTaskManager()
@@ -17,15 +18,14 @@ export function NodesContainerBody() {
 
   React.useEffect(() => {
     if (!loc.masId || tm.generated !== true) return
-    let stop = false
-    const load = async () => {
+    const poll = createPoller(async (stale) => {
       const r = await refreshSubagentList(api, loc.masId, loc.unitKey, loc.taskKey)
-      if (stop || !r || !r.ok) return
+      if (stale() || !r || !r.ok) return
       setAliveMap(r.alive || {})
-    }
-    load()
-    const tmr = setInterval(load, 3000)
-    return () => { stop = true; clearInterval(tmr) }
+    }, 3000)
+    poll.trigger()
+    poll.start()
+    return () => poll.stop()
   }, [api, loc.masId, loc.unitKey, loc.taskKey, tm.generated])
 
   if (tm.generated === false) {

@@ -24,6 +24,7 @@ const { packagedSkillDir } = await import(path.join(ROOT, 'src/host/paths/index.
 const { buildRevealCommand, fileManagerLabel, revealInFileManager } = await import(path.join(ROOT, 'src/host/file-system/reveal.js'))
 const { apply } = await import(path.join(ROOT, 'src/host/apply.js'))
 const { buildClient } = await import(path.join(ROOT, 'scripts/bundle-client.mjs'))
+const { createPoller } = await import(path.join(ROOT, 'src/client/util/poller.js'))
 
 /* ---------------- mini runner ---------------- */
 let passed = 0
@@ -1429,6 +1430,35 @@ test('L2 fs.reveal: resolves unit/task dirs and rejects missing task', async () 
 
   const ghost = await call(routes, '/pomasa/fs.reveal', 'POST', { masId: 'ghost', unit: 'default' })
   assert.equal(ghost.code, 404)
+})
+
+test('L1 poller: merges in-flight triggers, queues one re-run, stop invalidates', async () => {
+  let runs = 0
+  const gates = []
+  const staleAtEnd = []
+  const poll = createPoller(async (stale) => {
+    runs += 1
+    await new Promise((res) => gates.push(res))
+    staleAtEnd.push(stale())
+  }, 1000)
+
+  const p1 = poll.trigger()
+  const p2 = poll.trigger() // merges into the in-flight run, queues one re-run
+  assert.equal(runs, 1)
+  gates.shift()()
+  await p1
+  await p2
+  assert.equal(runs, 2, 'merged trigger queues exactly one re-run')
+  gates.shift()()
+  await new Promise((res) => setTimeout(res, 0))
+  assert.equal(runs, 2, 'no further runs without a trigger')
+  assert.deepEqual(staleAtEnd, [false, false])
+
+  const p3 = poll.trigger()
+  poll.stop() // invalidates the in-flight run
+  gates.shift()()
+  await p3
+  assert.deepEqual(staleAtEnd, [false, false, true])
 })
 
 await main()

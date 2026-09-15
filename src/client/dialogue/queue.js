@@ -4,6 +4,7 @@ import { psHierarchyBackdropProps, psOverlayRoot, snapshotHierarchyBase } from '
 import { t } from '../i18n.js'
 import { getServices } from '../services/index.js'
 import { latestAssistantLine, str } from '../util.js'
+import { createPoller } from '../util/poller.js'
 
 const dialogueQueue = {
   items: [],
@@ -120,11 +121,10 @@ function ProgressDialogBody(props) {
 
   React.useEffect(() => {
     if (!item.masId) return undefined
-    let alive = true
-    const tick = async () => {
+    const poll = createPoller(async (stale) => {
       try {
         const gs = await api.generationStatus(item.masId)
-        if (!alive || doneRef.current) return
+        if (stale() || doneRef.current) return
         const st = (gs && gs.status) || 'idle'
         setStatus(st)
         if (st === 'completed') {
@@ -136,14 +136,14 @@ function ProgressDialogBody(props) {
           return
         }
         const log = await api.generationLog(item.masId)
-        if (!alive || doneRef.current) return
+        if (stale() || doneRef.current) return
         const line = latestAssistantLine(log && log.log && log.log.events)
         if (line) setLatest(line)
       } catch { /* polling is best-effort */ }
-    }
-    tick()
-    const id = setInterval(tick, 2000)
-    return () => { alive = false; clearInterval(id) }
+    }, 2000)
+    poll.trigger()
+    poll.start()
+    return () => poll.stop()
   }, [item.masId, api, finish])
 
   const stillWorking = !failed && status !== 'completed' && status !== 'failed'

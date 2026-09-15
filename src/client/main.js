@@ -4,6 +4,7 @@ import { t, useLang } from './i18n.js'
 import { registerStartupButton } from './startup-button/button.js'
 import { CSS } from './styles.js'
 import { eventsToChatMessages, mergeChatMessages, setSessionDriver, setSessionsService, setWorkbenchPanel, snapshotToChatMessages } from './util.js'
+import { createPoller } from './util/poller.js'
 import { StudioRoot } from './workbench/app.js'
 export const inject = ['slots', 'workspaces', 'sessions']
 
@@ -313,9 +314,11 @@ export function apply(ctx) {
     await pullPersisted()
     emitMerged()
 
-    const pollId = setInterval(() => {
-      pullPersisted().then(emitMerged).catch(() => {})
+    const poll = createPoller(async (stale) => {
+      await pullPersisted()
+      if (!stale()) emitMerged()
     }, 2500)
+    poll.start()
 
     const liveRequested = !!(opts && opts.live)
     if (liveRequested && sessionsSvc) {
@@ -329,7 +332,7 @@ export function apply(ctx) {
 
     return () => {
       stopped = true
-      clearInterval(pollId)
+      poll.stop()
       liveUnsub()
     }
   }

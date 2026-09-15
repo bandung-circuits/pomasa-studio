@@ -1,10 +1,12 @@
 // Task manager — polling unit/task tree + current task state. No UI.
 import { actionBus } from '../actions/bus.js'
 import { deleteDialog, promptDialog } from '../dialogue/queue.js'
+import { t } from '../i18n.js'
 import { locators } from '../locators/context.js'
 import { getServices } from '../services/index.js'
 import { subagentClient } from '../subagent-manager/store.js'
 import { str } from '../util.js'
+import { createPoller } from '../util/poller.js'
 
 function emptyTaskSnap() {
   return {
@@ -22,7 +24,7 @@ function emptyTaskSnap() {
 
 export const taskManager = {
   api: null,
-  pollTimer: null,
+  poll: null,
   bound: false,
   descriptor: null,
   generated: null,
@@ -59,6 +61,7 @@ export const taskManager = {
     if (this.bound) return
     this.bound = true
     this.api = getServices()
+    this.poll = createPoller((stale) => this.fetchState(stale), 3000)
     locators.subscribe(() => this.onLocatorChange())
     actionBus.on('layout.boot', () => this.reset())
     actionBus.on('mas.open', () => this.refresh())
@@ -95,15 +98,16 @@ export const taskManager = {
   onLocatorChange() {
     const loc = locators.snapshot()
     if (!loc.masId) { this.reset(); return }
+    // stop() invalidates any in-flight fetch for the previous locator
+    this.stopPoll()
     this.startPoll()
     this.refresh()
   },
   startPoll() {
-    this.stopPoll()
-    this.pollTimer = setInterval(() => this.refresh(), 3000)
+    if (this.poll) this.poll.start()
   },
   stopPoll() {
-    if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null }
+    if (this.poll) this.poll.stop()
   },
   pickDefaultSelection(units) {
     const list = units || []
@@ -122,15 +126,20 @@ export const taskManager = {
     if (list[0]) return { unitKey: list[0].key, taskKey: null }
     return { unitKey: 'default', taskKey: null }
   },
-  async refresh() {
+  refresh() {
+    return this.poll ? this.poll.trigger() : this.fetchState(() => false)
+  },
+  async fetchState(stale) {
     const masId = locators.masId
     if (!masId || !this.api) return
     try {
       const g = await this.api.getMas(masId)
+      if (stale()) return
       this.descriptor = g.descriptor || null
       this.generated = !!g.generated
       if (g.generated) {
         const ul = await this.api.unitList(masId)
+        if (stale()) return
         this.units = ul.units || []
         const loc = locators.snapshot()
         if (!loc.unitKey) {
@@ -144,14 +153,17 @@ export const taskManager = {
         const cur = locators.snapshot()
         if (cur.unitKey) {
           const st = await this.api.unitState(masId, cur.unitKey, cur.taskKey)
+          if (stale()) return
           if (st.ok) this.unitState = st
         }
       } else {
         const gs = await this.api.generationStatus(masId)
+        if (stale()) return
         if (gs.ok) this.genStatus = gs
       }
       this.bump()
     } catch (e) {
+      if (stale()) return
       this.notice = { kind: 'err', text: String(e && e.message || e) }
       this.bump()
     }

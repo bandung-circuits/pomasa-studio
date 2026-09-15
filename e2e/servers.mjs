@@ -61,7 +61,14 @@ if (process.env.POMASA_E2E_SRC_HOME === 'user') {
   execFileSync('dsh', ['plugin', '--profile', 'web', 'add', ROOT], { env, stdio: 'ignore' })
 }
 
-proc = spawn('dsh', ['--profile', 'web', '--no-open', '--port', String(PORT), '--trusted-host', `127.0.0.1:${PORT}`], { env })
+// --no-open only exists on newer dsh builds; probe before passing it.
+let noOpen = []
+try {
+  const help = execFileSync('dsh', ['--profile', 'web', '--help'], { env }).toString()
+  if (help.includes('--no-open')) noOpen = ['--no-open']
+} catch { /* ignore */ }
+
+proc = spawn('dsh', ['--profile', 'web', ...noOpen, '--port', String(PORT), '--trusted-host', `127.0.0.1:${PORT}`], { env })
 proc.stdout?.on('data', () => {})
 proc.stderr?.on('data', () => {})
 

@@ -3,31 +3,36 @@ import { actionBus } from '../actions/bus.js'
 import { psBtn } from '../buttons/button.js'
 import { MAS_STATUS_BADGE, fmtTime } from '../components.js'
 import { deleteDialog } from '../dialogue/queue.js'
+import { t } from '../i18n.js'
 import { locators, useLocators } from '../locators/context.js'
 import { ScrollBox, ScrollFrame } from '../scrollbox/box.js'
 import { getServices } from '../services/index.js'
 import { str } from '../util.js'
+import { createPoller } from '../util/poller.js'
 
 export function MasList() {
   const api = getServices()
   const loc = useLocators()
   const [mas, setMas] = React.useState(null)
   const [error, setError] = React.useState(null)
-
-  const refresh = React.useCallback(() => {
-    api.listMas()
-      .then((r) => {
-        if (r.ok) { setMas(r.mas); setError(null) }
-        else setError(r.error)
-      })
-      .catch((e) => setError(String(e && e.message || e)))
-  }, [api])
+  const pollRef = React.useRef(null)
 
   React.useEffect(() => {
-    refresh()
-    const t = setInterval(refresh, 3000)
-    return () => clearInterval(t)
-  }, [refresh])
+    const poll = createPoller(async (stale) => {
+      try {
+        const r = await api.listMas()
+        if (stale()) return
+        if (r.ok) { setMas(r.mas); setError(null) }
+        else setError(r.error)
+      } catch (e) {
+        if (!stale()) setError(String(e && e.message || e))
+      }
+    }, 3000)
+    pollRef.current = poll
+    poll.trigger()
+    poll.start()
+    return () => { poll.stop(); pollRef.current = null }
+  }, [api])
 
   return h(ScrollFrame, null,
     h(ScrollBox, null,
@@ -69,7 +74,7 @@ export function MasList() {
                         if (!choice) return
                         api.deleteMas(m.id, choice === 'hard').then((r) => {
                           if (r && r.ok) {
-                            refresh()
+                            if (pollRef.current) pollRef.current.trigger()
                             if (locators.masId === m.id) {
                               locators.set({ masId: null, unitKey: null, taskKey: null })
                               actionBus.emit('layout.boot', {})
