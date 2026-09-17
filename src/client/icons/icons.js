@@ -12,8 +12,14 @@ import zoom from '../../../assets/zoom.svg'
 import expand from '../../../assets/expand.svg'
 import switchIcon from '../../../assets/switch.svg'
 import close from '../../../assets/close.svg'
+import addMas from '../../../assets/add-mas.svg'
+import textList from '../../../assets/text-list.svg'
+import cardList from '../../../assets/card-list.svg'
 
-const ICON_SVGS = { info, back, settings, blueprint, chat, output, pomasa, send, add, zoom, expand, switch: switchIcon, close }
+const ICON_SVGS = {
+  info, back, settings, blueprint, chat, output, pomasa, send, add, zoom, expand,
+  switch: switchIcon, close, 'add-mas': addMas, 'text-list': textList, 'card-list': cardList,
+}
 
 function psIconSize(raw, size) {
   return String(raw)

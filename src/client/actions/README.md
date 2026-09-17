@@ -18,7 +18,8 @@
 | `layout.boot` | work 标题返回 / MAS 删除后 | workbench, task-manager, file-reader, studio-mode |
 | `layout.work` | MAS 打开 | workbench |
 | `mas.open` | MAS-list | workbench, task-manager |
-| `mas.create` | boot 标题 | workbench → 打开 creator |
+| `mas.create` | boot-toolbar | workbench → 打开 creator |
+| `settings.open` | boot-toolbar / work 标题 | workbench |
 | `mas.created` | workbench（进入已生成 MAS） | task-manager |
 | `task.open` | task-manager.selectTask | file-reader（关查看器） |
 | `unit.prompt` | task-tree 标题 + | task-manager → promptDialog |
@@ -30,7 +31,6 @@
 | `run.start` / `run.cancel` | operation-controller / file-reader rerun / task-tree | workbench（driveSession） |
 | `run.choose` | task-tree（已有产物） | file-reader RerunModal |
 | `file.open` | subagent-details / orchestrator | file-reader |
-| `settings.open` | title bars | workbench |
 | `agent.chat.select` | studio-mode / orchestrator | chat |
 | `execute.mode.on` / `design.mode.on` | studio-mode | chat |
 

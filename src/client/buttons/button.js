@@ -97,6 +97,15 @@ registerButton('add', {
   size: 16,
 })
 
+registerButton('add-mas', {
+  kind: 'icon',
+  tone: 'light',
+  ghost: true,
+  icon: 'add-mas',
+  size: 16,
+  title: () => t('new.btn'),
+})
+
 registerButton('zoom', {
   kind: 'icon',
   tone: 'light',

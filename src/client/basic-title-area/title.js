@@ -1,7 +1,7 @@
 // Title bars for boot and work layouts — emit actions, read locators/task-manager.
 import { actionBus } from '../actions/bus.js'
 import { BootSign } from '../boot-sign/sign.js'
-import { psBtn, psIconBtn } from '../buttons/button.js'
+import { psIconBtn } from '../buttons/button.js'
 import { t } from '../i18n.js'
 import { locators, useLocators } from '../locators/context.js'
 import { StudioModeSwitchBtn } from '../studio-mode/panel.js'
@@ -21,7 +21,6 @@ export function BootTitleBarSlot() {
   return h('div', { className: 'ps-title-bar' },
     h('div', { className: 'ps-title-left' }, h(BootSign, null)),
     h('span', { className: 'spacer', style: { flex: 1 } }),
-    h(psBtn, { primary: true, style: { padding: '5px 12px', fontSize: 13.5 }, onClick: () => actionBus.emit('mas.create', {}) }, t('new.btn')),
     h(psIconBtn, { icon: 'settings', onClick: () => actionBus.emit('settings.open', {}), title: t('settings.title') }),
     h(StudioCloseBtn, null),
   )
@@ -48,10 +47,6 @@ export function WorkTitleBarSlot() {
     h(psIconBtn, { icon: 'settings', onClick: () => actionBus.emit('settings.open', {}), title: t('settings.title') }),
     h(StudioCloseBtn, null),
   )
-}
-
-function BootTitleBar(props) {
-  return h(BootTitleBarSlot, props)
 }
 
 function WorkTitleBar(props) {

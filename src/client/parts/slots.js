@@ -1,6 +1,8 @@
 // Part registry — region + order + title/render; layout/grid compose regions.
 import { MasList } from '../MAS-list/list.js'
 import { AgentProcessingBar } from '../agent-processing-bar/bar.js'
+import { BootTipsBar } from '../boot-tips/bar.js'
+import { BootToolbar } from '../boot-toolbar/toolbar.js'
 import { BootTitleBarSlot, WorkTitleBarSlot } from '../basic-title-area/title.js'
 import { AgentChatPanel } from '../chat/panel.js'
 import { PartDescription } from '../description/hint.js'
@@ -106,7 +108,9 @@ export function registerStudioSlots() {
   if (studioSlotsReady) return
   studioSlotsReady = true
   layoutSlots.register({ id: 'boot-title', region: 'boot.title', order: 0, title: null, render: () => h(BootTitleBarSlot, null) })
-  layoutSlots.register({ id: 'boot-content', region: 'boot.content', order: 0, title: () => t('studio.tagline'), render: () => h(MasList, null) })
+  layoutSlots.register({ id: 'boot-toolbar', region: 'boot.toolbar', order: 0, title: null, render: () => h(BootToolbar, null) })
+  layoutSlots.register({ id: 'boot-content', region: 'boot.content', order: 0, title: () => t('boot.recent'), render: () => h(MasList, null) })
+  layoutSlots.register({ id: 'boot-tips', region: 'boot.footer', order: 0, title: null, render: () => h(BootTipsBar, null) })
   layoutSlots.register({ id: 'work-title', region: 'work.title', order: 0, title: null, render: () => h(WorkTitleBarSlot, null) })
   layoutSlots.register({
     id: 'task-tree',
