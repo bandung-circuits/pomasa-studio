@@ -1,7 +1,8 @@
-import path from 'node:path'
 import { loadDescriptor } from '../data/descriptor.js'
 import { listDeclaredAgents, ORCHESTRATOR_KEY } from '../data/graph.js'
 import { masDir } from '../paths/index.js'
+import { promptLangFromMasRoot } from '../prompts/index.js'
+import { standbyUserText } from '../prompts/warmup.js'
 import { DEFAULT_UNIT, LEGACY_TASK } from '../task-manager/state.js'
 
 function runScopeKey(unitKey, taskKey) {
@@ -9,18 +10,8 @@ function runScopeKey(unitKey, taskKey) {
 }
 
 /** Standby prompt — agent reads blueprint but does not start work until orchestrated. */
-export function warmPrompt(agent, masRoot, unitRoot) {
-  const bp = path.join(masRoot, agent.agent)
-  if (agent.kind === 'orchestrator' || agent.key === ORCHESTRATOR_KEY) {
-    return `你是本 MAS 的编排者（Orchestrator）待机实例。请先阅读蓝图：${bp}
-
-当前任务单元根（运行沙箱）：${unitRoot}
-请保持待机，等待研究者启动运行或发出指令后再按蓝图编排各阶段。不要自行开始阶段工作或写产物。`
-  }
-  return `你是阶段子代理「${agent.title}」（${agent.key}）的待机实例。请先阅读蓝图：${bp}
-
-当前任务单元根：${unitRoot}
-请保持待机，等待编排者（Orchestrator）调度后再执行本阶段任务。不要自行开始工作或在单元根外写入文件。`
+export function warmPrompt(agent, masRoot, unitRoot, lang) {
+  return standbyUserText(agent, masRoot, unitRoot, lang || promptLangFromMasRoot(masRoot))
 }
 
 export function createSubagentManager(config, sessions, home, registry) {
@@ -121,15 +112,17 @@ export function createSubagentManager(config, sessions, home, registry) {
     const agent = declared.agents.find((a) => a.key === agentKey)
     if (!agent) return { ok: false, error: 'unknown agent' }
     const root = masRoot(masId)
+    const lang = promptLangFromMasRoot(root)
     return {
       ok: true,
       agentKey,
-      prompt: warmPrompt(agent, root, unitRoot),
+      prompt: warmPrompt(agent, root, unitRoot, lang),
     }
   }
 
   function buildWarmAgents(descriptor, masRoot, unitRoot) {
     const agents = listDeclaredAgents(descriptor, masRoot)
+    const lang = promptLangFromMasRoot(masRoot)
     const out = []
     for (const agent of agents) {
       if (agent.key === ORCHESTRATOR_KEY) continue
@@ -138,7 +131,7 @@ export function createSubagentManager(config, sessions, home, registry) {
         kind: agent.kind,
         title: agent.title,
         agent: agent.agent,
-        prompt: warmPrompt(agent, masRoot, unitRoot),
+        prompt: warmPrompt(agent, masRoot, unitRoot, lang),
       })
     }
     return out

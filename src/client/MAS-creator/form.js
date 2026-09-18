@@ -68,7 +68,7 @@ export function CreateMas(props) {
   const api = props.api
   const lang = useLang()
   const [f, setF] = React.useState(() => ({
-    name: '', projectId: '', language: 'Chinese', reportLanguage: 'Chinese',
+    name: '', projectId: '', language: t('create.default.language'), reportLanguage: t('create.default.language'),
     topic: '', ideas: '', dataSources: t('create.default.dataSources'), refs: '',
     analysis: '', reportFormat: t('create.default.reportFormat'), reportStructure: '',
     runMode: 'single', runDimensions: '', runUnits: '',
@@ -85,6 +85,8 @@ export function CreateMas(props) {
       const nf = Object.assign({}, pf)
       if (nf.dataSources === t('create.default.dataSources', null, prev)) nf.dataSources = t('create.default.dataSources')
       if (nf.reportFormat === t('create.default.reportFormat', null, prev)) nf.reportFormat = t('create.default.reportFormat')
+      if (nf.language === t('create.default.language', null, prev)) nf.language = t('create.default.language')
+      if (nf.reportLanguage === t('create.default.language', null, prev)) nf.reportLanguage = t('create.default.language')
       return nf
     })
   }, [lang])

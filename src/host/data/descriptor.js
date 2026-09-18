@@ -22,6 +22,7 @@ export function loadDescriptor(masRoot) {
     description: raw.description || '',
     schemaVersion: raw.schema_version || 'unknown',
     generationTime: raw.created_at ?? null,
+    language: normalizeLanguage(raw.language),
     stages: [],
     work: normalizeWork(raw.work),
   }
@@ -53,6 +54,15 @@ export function normalizeAgentPath(p) {
   if (!s) return null
   if (s.includes('/')) return /\.(md|markdown|txt|json)$/i.test(s) ? s : null
   return /^[A-Za-z0-9._-]+\.(md|markdown|txt|json)$/i.test(s) ? 'agents/' + s : null
+}
+
+export function normalizeLanguage(language) {
+  if (!language) return { blueprint: null, report: null }
+  if (typeof language === 'string') return { blueprint: language, report: language }
+  if (typeof language !== 'object') return { blueprint: null, report: null }
+  const blueprint = language.blueprint || language.agent || null
+  const report = language.report || language.output || blueprint
+  return { blueprint, report }
 }
 
 export function normalizeWork(work) {

@@ -5,6 +5,7 @@ import { modulePath } from '../platform/index.js'
 import { loadDescriptor } from '../data/descriptor.js'
 import { unitListing, collectRunJsonPaths } from '../task-manager/state.js'
 import { writeUserInput, generationPrompt } from './prompt.js'
+import { promptLangFromValue } from '../prompts/index.js'
 
 export function createMasCreator(deps) {
   const { config, home, agentLoop, gens, sessions, registry } = deps
@@ -136,7 +137,7 @@ export function createMasCreator(deps) {
       return { ok: true, masId: id, generation: 'session' }
     }
 
-    return { ok: true, masId: id, generation: 'client', prompt: generationPrompt(gens, id, root) }
+    return { ok: true, masId: id, generation: 'client', prompt: generationPrompt(gens, id, root, promptLangFromValue(body.language)) }
   }
 
   async function getGenerationStatus(masId) {

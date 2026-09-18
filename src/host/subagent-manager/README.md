@@ -6,7 +6,7 @@
 ## 实现
 [`manager.js`](manager.js)：
 - `listDeclared(masId)` — orchestrator + 各 stage
-- `warmPrompt` / `buildWarmAgents` — 待机文案（供 seed 与文档）
+- `warmPrompt` / `buildWarmAgents` — 待机文案（语言跟 `pomasa.json` `language.blueprint`，不是 Studio UI）
 - `listAlive` / `getInfo` — 读 registry `lastAgentSessionIds` + live/running 状态
 - `getAgentLog` — 校验 task registry 后 `persistence.inspect` 返回 events
 

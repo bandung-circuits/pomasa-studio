@@ -25,7 +25,7 @@ Stage 子代理 seed 落盘后 **`handle.dispose()`**，只留 persistence（`li
 编排者应用 `send_message` 投递后等待 DSH 的 **`subagent-settled`** 结算通知，**不要**用 `list_agents` 轮询或 bash sleep 等待产物；`runPrompt` / `runPromptWithRoster` 已写入该协议。
 
 ## Seed
-[`seed.js`](seed.js) 写入闭合 turn +（子代理）`subagent/descriptor`（`mode: continuable`），供冷恢复与 chat 展示待机对话。不要设置 `seedLength`（descriptor 须在 slice 起点）。
+[`seed.js`](seed.js) 写入闭合 turn +（子代理）`subagent/descriptor`（`mode: continuable`），供冷恢复与 chat 展示待机对话。不要设置 `seedLength`（descriptor 须在 slice 起点）。待机提词语言跟 MAS 蓝图语言走（见 [`../prompts/README.md`](../prompts/README.md)），避免英文 MAS 被中文系统提词带偏。
 
 ## 约束
 - **不**伪造 `~/.dsh/sessions` 文件

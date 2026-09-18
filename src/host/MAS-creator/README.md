@@ -6,7 +6,7 @@ MAS 生成脚手架：`mas.create`、生成状态/日志、`masSummary` 列表�
 ## 现实现
 [`create.js`](create.js)：
 - 写 `workspace/`、`agents/`、`references/`、`user_input.md`
-- 正常路径返回 `generation: 'client'` + `generationPrompt`（会话由 client 经 workspace 创建）
+- 正常路径返回 `generation: 'client'` + `generationPrompt`（会话由 client 经 workspace 创建；提词语言跟表单蓝图语言，见 [`../prompts/README.md`](../prompts/README.md)）
 - `fastGeneration` mock（verify / 测试）
 - `isGenerationComplete`：pomasa.json + 全部 stage blueprint 存在
 

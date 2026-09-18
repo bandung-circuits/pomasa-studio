@@ -1,3 +1,5 @@
+export { standbyAssistantText, standbyUserText } from '../prompts/warmup.js'
+
 function seedMsgId(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
@@ -46,25 +48,4 @@ export function standbySeed({ userText, assistantText, provider, model, subagent
   push('step/end', { turn: 1, step: 1 })
   push('turn/end', { turn: 1, reason: { kind: 'completed' } })
   return events
-}
-
-export function standbyUserText(agent, masRoot, unitRoot) {
-  const bp = agent.agent ? `${masRoot}/${agent.agent}` : agent.agent
-  if (agent.kind === 'orchestrator' || agent.key === 'orchestrator') {
-    return `你是本 MAS 的编排者（Orchestrator）待机实例。请先阅读蓝图：${bp}
-
-当前任务单元根（运行沙箱）：${unitRoot}
-请保持待机，等待研究者启动运行或发出指令后再按蓝图编排各阶段。不要自行开始阶段工作或写产物。`
-  }
-  return `你是阶段子代理「${agent.title}」（${agent.key}）的待机实例。请先阅读蓝图：${bp}
-
-当前任务单元根：${unitRoot}
-请保持待机，等待编排者（Orchestrator）调度后再执行本阶段任务。不要自行开始工作或在单元根外写入文件。`
-}
-
-export function standbyAssistantText(agent) {
-  if (agent.kind === 'orchestrator' || agent.key === 'orchestrator') {
-    return '已就位。我已阅读待机指示，将保持待机，等待运行指令后再按蓝图编排各阶段。'
-  }
-  return `已就位。我是阶段子代理「${agent.title}」，将保持待机，等待编排者调度。`
 }

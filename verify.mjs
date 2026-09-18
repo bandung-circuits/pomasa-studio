@@ -159,6 +159,7 @@ test('L1 descriptor: alias tolerance (artifact vs id, agent vs agent_file)', () 
   const d = loadDescriptor(path.join(home, 'demo'))
   assert.equal(d.id, 'demo')
   assert.equal(d.work.mode, 'single')
+  assert.equal(d.language.blueprint, null)
   assert.equal(d.stages.length, 2)
   assert.equal(d.stages[0].agent, 'agents/01.overview.md')
   assert.equal(d.stages[0].contracts[0].id, 'overview')
@@ -404,7 +405,7 @@ test('L1 mcp-servers: seeded yml parses into mcp-client configs', async () => {
 
 test('L1 prompt: forces Markdown-only output', () => {
   const md = buildUserInput({ projectId: 'x', topic: 't', runMode: 'single' })
-  assert.match(md, /Deliverable|输出格式/)
+  assert.match(md, /Output Format/)
   // implicit STR-08 (Pandoc-Ready Markdown): footnote citation is always
   // baked into the generated user input
   assert.match(md, /STR-08/)
@@ -413,6 +414,45 @@ test('L1 prompt: forces Markdown-only output', () => {
   assert.doesNotThrow(() => buildUserInput({ projectId: 'y', topic: 't', runMode: 'multi', runDimensions: 'country' }))
   const multiMd = buildUserInput({ projectId: 'z', topic: 't', runMode: 'multi', runUnits: ['a', 'b'] })
   assert.match(multiMd, /- a\n- b/)
+  const enMd = buildUserInput({ projectId: 'en', topic: 't', language: 'English', runMode: 'single' })
+  assert.match(enMd, /Agent Blueprint Language\*\*: English/)
+  assert.match(enMd, /AI to suggest/)
+  assert.doesNotMatch(enMd, /由 AI 建议/)
+  assert.doesNotMatch(enMd, /请使用中文/)
+})
+
+test('L1 prompt i18n: warmup seed follows MAS blueprint language', async () => {
+  const { normalizePromptLang, promptLangFromDescriptor, promptLangFromValue } = await import(path.join(ROOT, 'src/host/prompts/locale.js'))
+  const { standbyUserText, standbyAssistantText } = await import(path.join(ROOT, 'src/host/agent-creator/seed.js'))
+  const { warmPrompt } = await import(path.join(ROOT, 'src/host/subagent-manager/manager.js'))
+  const { runPrompt } = await import(path.join(ROOT, 'src/host/MAS-creator/prompt.js'))
+  assert.equal(normalizePromptLang('Chinese'), 'zh')
+  assert.equal(normalizePromptLang('zh-CN'), 'zh')
+  assert.equal(normalizePromptLang('English'), 'en')
+  assert.equal(normalizePromptLang('en-US'), 'en')
+  assert.equal(promptLangFromValue(''), 'zh')
+  assert.equal(promptLangFromDescriptor({ language: { blueprint: 'English', report: 'Chinese' } }), 'en')
+  assert.equal(promptLangFromDescriptor({ language: { blueprint: null, report: null } }), null)
+  const stage = { key: 'scan', title: 'Landscape Scan', kind: 'stage', agent: 'agents/01.scan.md' }
+  const zhWarm = warmPrompt(stage, '/mas', '/mas/workspace/default/t1', 'zh')
+  const enWarm = warmPrompt(stage, '/mas', '/mas/workspace/default/t1', 'en')
+  assert.match(zhWarm, /请使用中文思考与回复/)
+  assert.match(zhWarm, /阶段子代理/)
+  assert.match(enWarm, /Think and reply in English/)
+  assert.match(enWarm, /standby stage subagent/)
+  assert.doesNotMatch(enWarm, /你是/)
+  assert.match(standbyAssistantText(stage, 'en'), /Standing by/)
+  assert.match(standbyUserText({ key: 'orchestrator', kind: 'orchestrator', agent: 'agents/00.orchestrator.md' }, '/mas', '/u', 'en'), /standby Orchestrator/)
+  const enRun = runPrompt('/mas', '/u', 'default/t1', { mode: 'fresh' }, 'en')
+  assert.match(enRun, /Think and reply in English/)
+  assert.match(enRun, /not to poll for completion/)
+  assert.doesNotMatch(enRun, /你是本 MAS/)
+  const home = tempHome()
+  const root = path.join(home, 'legacy-en')
+  fs.mkdirSync(root, { recursive: true })
+  fs.writeFileSync(path.join(root, 'user_input.md'), '# User Input\n\n**Agent Blueprint Language**: English\n')
+  const { promptLangFromMasRoot } = await import(path.join(ROOT, 'src/host/prompts/locale.js'))
+  assert.equal(promptLangFromMasRoot(root), 'en')
 })
 
 /* ================= L2: host integration ================= */
@@ -766,6 +806,7 @@ test('L2 lifecycle: run.start prepares the prompt; /record tracks the run sessio
   const parkedLog = await call(routes, `/pomasa/agent.log?masId=demo&agentKey=${started.json.agents[0].key}&unit=${started.json.unitKey}&task=${started.json.taskKey}`)
   assert.equal(parkedLog.json.ok, true)
   assert.ok(Array.isArray(parkedLog.json.events) && parkedLog.json.events.length > 0, 'agent.log returns persisted seed')
+  assert.match(JSON.stringify(parkedLog.json.events), /已就位|阶段子代理/, 'default MAS warms up in Chinese')
   for (const [, agent] of agents) {
     assert.equal(agent.meta.cwd, taskRoot, 'prebuilt agent cwd is task root')
   }
@@ -789,6 +830,28 @@ test('L2 lifecycle: run.start prepares the prompt; /record tracks the run sessio
   agents.get(started.json.orchestratorSessionId).status = 'ended'
   const list2 = await call(routes, '/pomasa/mas.list')
   assert.equal(list2.json.mas.find((m) => m.id === 'demo').status, 'idle')
+})
+
+test('L2 lifecycle: English blueprint language warms subagents in English', async () => {
+  const home = tempHome()
+  const { ctx, routes } = mockCtx()
+  apply(ctx, { pomasaHome: home })
+  writeMas(home, 'demo', { ...SINGLE_DESCRIPTOR, language: { blueprint: 'en-US', report: 'en-US' } })
+  fs.mkdirSync(path.join(home, 'demo', 'agents'), { recursive: true })
+  fs.writeFileSync(path.join(home, 'demo', 'agents', '00.orchestrator.md'), '# orch')
+  fs.writeFileSync(path.join(home, 'demo', 'agents', '01.overview.md'), '# o')
+  fs.writeFileSync(path.join(home, 'demo', 'agents', '02.research.md'), '# r')
+
+  const started = await call(routes, '/pomasa/run.start', 'POST', { masId: 'demo' })
+  assert.equal(started.json.ok, true)
+  assert.match(started.json.prompt, /Think and reply in English/)
+  assert.match(started.json.prompt, /Prebuilt subagents/)
+  assert.doesNotMatch(started.json.prompt, /你是本 MAS/)
+  const parkedLog = await call(routes, `/pomasa/agent.log?masId=demo&agentKey=${started.json.agents[0].key}&unit=${started.json.unitKey}&task=${started.json.taskKey}`)
+  const seed = JSON.stringify(parkedLog.json.events)
+  assert.match(seed, /Standing by/)
+  assert.match(seed, /Think and reply in English/)
+  assert.doesNotMatch(seed, /你是阶段子代理/)
 })
 
 test('L2 design.start: cwd is mas root', async () => {

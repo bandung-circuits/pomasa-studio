@@ -1,9 +1,9 @@
-import path from 'node:path'
 import { loadDescriptor } from '../data/descriptor.js'
 import { listDeclaredAgents, ORCHESTRATOR_KEY } from '../data/graph.js'
 import { runPrompt } from '../MAS-creator/prompt.js'
 import { defaultModel } from '../config/default-model.js'
 import { promptMessage } from '../http.js'
+import { promptLangFromMasRoot, promptT } from '../prompts/index.js'
 import { warmPrompt } from '../subagent-manager/manager.js'
 import { agentSessionId, designSessionId } from './ids.js'
 import { standbyAssistantText, standbySeed, standbyUserText } from './seed.js'
@@ -179,8 +179,9 @@ export function createAgentCreator(ctx, deps) {
     return { ok: true }
   }
 
-  function runPromptWithRoster(masRoot, unitRoot, unitKey, opts, roster) {
-    const base = runPrompt(masRoot, unitRoot, unitKey, opts)
+  function runPromptWithRoster(masRoot, unitRoot, unitKey, opts, roster, lang) {
+    const l = lang || promptLangFromMasRoot(masRoot)
+    const base = runPrompt(masRoot, unitRoot, unitKey, opts, l)
     if (!roster || !roster.length) return base
     const lines = roster
       .filter((r) => r.key !== ORCHESTRATOR_KEY)
@@ -188,7 +189,7 @@ export function createAgentCreator(ctx, deps) {
       .join('\n')
     return `${base}
 
-已预建子代理（**禁止**使用 subagent 工具新建；请用 send_message 复用下列 sessionId；list_agents 仅用于核对 id，不可轮询完成）：
+${promptT(l, 'run.roster')}
 ${lines}`
   }
 
@@ -199,6 +200,7 @@ ${lines}`
     const descriptor = loadDescriptor(masRoot)
     if (!descriptor) return { ok: false, error: 'mas not generated yet' }
     const declared = listDeclaredAgents(descriptor, masRoot)
+    const lang = promptLangFromMasRoot(masRoot)
     const { provider, model } = resolveModel(ctx)
     const agentOptions = { provider, model }
     const agentMap = {}
@@ -210,8 +212,8 @@ ${lines}`
 
     const orchSid = agentSessionId(masId, unitKey, taskKey, ORCHESTRATOR_KEY)
     const orchSeed = standbySeed({
-      userText: standbyUserText(orchAgent, masRoot, unitRoot),
-      assistantText: standbyAssistantText(orchAgent),
+      userText: standbyUserText(orchAgent, masRoot, unitRoot, lang),
+      assistantText: standbyAssistantText(orchAgent, lang),
       provider,
       model,
     })
@@ -225,8 +227,8 @@ ${lines}`
       if (agent.key === ORCHESTRATOR_KEY) continue
       const sid = agentSessionId(masId, unitKey, taskKey, agent.key)
       const seed = standbySeed({
-        userText: standbyUserText(agent, masRoot, unitRoot),
-        assistantText: standbyAssistantText(agent),
+        userText: standbyUserText(agent, masRoot, unitRoot, lang),
+        assistantText: standbyAssistantText(agent, lang),
         provider,
         model,
         subagentLabel: agent.title || agent.key,
@@ -247,14 +249,14 @@ ${lines}`
         kind: agent.kind,
         title: agent.title,
         sessionId: sid,
-        prompt: warmPrompt(agent, masRoot, unitRoot),
+        prompt: warmPrompt(agent, masRoot, unitRoot, lang),
       })
       await attachToCwdWorkspace(sid, unitRoot, agent.title || agent.key)
     }
 
     registry.recordRunAgents(masId, unitKey, taskKey, agentMap)
 
-    const prompt = runPromptWithRoster(masRoot, unitRoot, `${unitKey}/${taskKey}`, opts, roster)
+    const prompt = runPromptWithRoster(masRoot, unitRoot, `${unitKey}/${taskKey}`, opts, roster, lang)
 
     return {
       ok: true,
@@ -273,12 +275,13 @@ ${lines}`
     const descriptor = loadDescriptor(masRoot)
     if (!descriptor) return { ok: false, error: 'mas not generated yet' }
     const declared = listDeclaredAgents(descriptor, masRoot)
+    const lang = promptLangFromMasRoot(masRoot)
     const { provider, model } = resolveModel(ctx)
     const agentOptions = { provider, model }
     const sid = designSessionId(masId)
     const seed = standbySeed({
-      userText: designUserText(masRoot, declared),
-      assistantText: designAssistantText(),
+      userText: designUserText(masRoot, declared, lang),
+      assistantText: designAssistantText(lang),
       provider,
       model,
     })
