@@ -30,6 +30,7 @@ src/host/
   apply.js          入口：注册 /pomasa 路由
   http.js           JSON / query 工具
   paths/            pluginDir、pomasaHome、masDir、taskDir（唯一路径入口）
+  platform/         多平台入口：modulePath、isPathInside、reveal、dshHome
   file-system/      读写删 + file.change 事件
   logs/             插件目录 logs/host.log
   services/         后台事件总线（file.change → file-monitor hub）

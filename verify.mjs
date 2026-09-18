@@ -22,6 +22,7 @@ const { buildUserInput } = await import(path.join(ROOT, 'src/host/MAS-creator/pr
 const { ensurePomasaHome, templatePomasaHome } = await import(path.join(ROOT, 'src/runtime/bootstrap.js'))
 const { packagedSkillDir } = await import(path.join(ROOT, 'src/host/paths/index.js'))
 const { buildRevealCommand, fileManagerLabel, revealInFileManager } = await import(path.join(ROOT, 'src/host/file-system/reveal.js'))
+const { isPathInside, modulePath } = await import(path.join(ROOT, 'src/host/platform/index.js'))
 const { apply } = await import(path.join(ROOT, 'src/host/apply.js'))
 const { buildClient } = await import(path.join(ROOT, 'scripts/bundle-client.mjs'))
 const { createPoller } = await import(path.join(ROOT, 'src/client/util/poller.js'))
@@ -1402,6 +1403,27 @@ test('L1 fs.reveal: exec hook receives resolved path', async () => {
   assert.equal(calls.length, 1)
   assert.equal(calls[0].cmd, 'open')
   assert.deepEqual(calls[0].args, ['-R', dir])
+  fs.rmSync(dir, { recursive: true, force: true })
+})
+
+test('L1 platform: isPathInside win32 case/slash; explorer exit 1 is success', async () => {
+  assert.equal(isPathInside('C:\\foo\\bar', 'C:\\foo', 'win32'), true)
+  assert.equal(isPathInside('c:/foo/bar.txt', 'C:\\foo', 'win32'), true)
+  assert.equal(isPathInside('C:\\foo', 'C:\\foo', 'win32'), true)
+  assert.equal(isPathInside('C:\\foobar', 'C:\\foo', 'win32'), false)
+  const skill = modulePath(new URL('./skill/', import.meta.url))
+  assert.equal(fs.existsSync(path.join(skill, 'SKILL.md')), true)
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pomasa-reveal-win-'))
+  const r = await revealInFileManager(dir, {
+    platform: 'win32',
+    exec: async () => {
+      const err = new Error('Command failed: explorer')
+      err.status = 1
+      throw err
+    },
+  })
+  assert.equal(r.ok, true)
+  assert.equal(r.fileManager, 'Explorer')
   fs.rmSync(dir, { recursive: true, force: true })
 })
 

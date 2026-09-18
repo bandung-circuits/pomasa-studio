@@ -1,7 +1,7 @@
 import fs from 'node:fs'
-import path from 'node:path'
 import { jsonResponse } from '../http.js'
 import { masDir } from '../paths/index.js'
+import { isPathInside } from '../platform/index.js'
 import * as bus from '../services/index.js'
 import { createFileMonitor } from './monitor.js'
 import { createChangeThrottle } from './throttle.js'
@@ -31,10 +31,9 @@ export function createWatchHub({ config, home }) {
       s.monitor = createFileMonitor(root, () => s.throttle.notify(), { intervalMs })
       s.monitor.watch()
     }
-    const prefix = root.endsWith(path.sep) ? root : root + path.sep
     s.busOff = bus.on('file.change', (p) => {
       const file = p && (p.path || p.from)
-      if (file && String(file).startsWith(prefix)) s.throttle.notify()
+      if (file && isPathInside(file, root)) s.throttle.notify()
     })
     scopes.set(root, s)
     return s

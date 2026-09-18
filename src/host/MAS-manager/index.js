@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import * as fsx from '../file-system/index.js'
-import { fileManagerLabel } from '../file-system/reveal.js'
+import { currentPlatform, fileManagerLabel } from '../platform/index.js'
 import { loadDescriptor } from '../data/descriptor.js'
 import { masDir, pomasaHome } from '../paths/index.js'
 
@@ -68,7 +68,7 @@ export function createMasManager(deps) {
       ok: true,
       home: home(),
       sessions: sessionsList,
-      host: { platform: process.platform, fileManager: fileManagerLabel() },
+      host: { platform: currentPlatform(), fileManager: fileManagerLabel() },
     }
   }
 

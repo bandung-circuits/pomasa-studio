@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { masDir } from '../paths/index.js'
+import { isPathInside } from '../platform/index.js'
 import { loadDescriptor } from '../data/descriptor.js'
 import {
   createTaskDir,
@@ -136,7 +137,7 @@ export function createTaskRunner(deps) {
     const resolved = resolveTaskRoot(config, masId, unitKey, taskKey)
     const workspace = path.join(masDir(home(), masId), 'workspace')
     const unitRoot = resolved ? resolved.root : path.join(workspace, unitKey, taskKey)
-    if (unitRoot !== workspace && !unitRoot.startsWith(workspace + path.sep)) {
+    if (!isPathInside(unitRoot, workspace)) {
       return { ok: false, code: 400, error: 'unit path escapes mas workspace' }
     }
     const events = []

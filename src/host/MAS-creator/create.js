@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { masDir } from '../paths/index.js'
+import { modulePath } from '../platform/index.js'
 import { loadDescriptor } from '../data/descriptor.js'
 import { unitListing, collectRunJsonPaths } from '../task-manager/state.js'
 import { writeUserInput, generationPrompt } from './prompt.js'
@@ -120,7 +120,7 @@ export function createMasCreator(deps) {
       push('tool', { name: 'read', arguments: JSON.stringify({ file: 'pattern-catalog/README.md' }) })
       setTimeout(() => {
         try {
-          const srcRoot = fileURLToPath(new URL('../../../fixtures/mock-generated', import.meta.url))
+          const srcRoot = modulePath(new URL('../../../fixtures/mock-generated', import.meta.url))
           fs.cpSync(srcRoot, root, { recursive: true })
           const pj = path.join(root, 'pomasa.json')
           let txt = fs.readFileSync(pj, 'utf8')

@@ -1,11 +1,10 @@
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { modulePath, userHome } from '../platform/index.js'
 
 /** Plugin package root (`src/host/`). */
 export function pluginDir() {
-  return fileURLToPath(new URL('../', import.meta.url))
+  return modulePath(new URL('../', import.meta.url))
 }
 
 /**
@@ -15,7 +14,7 @@ export function pluginDir() {
  * registers, breaking session grouping.
  */
 export function pomasaHome(config = {}) {
-  const resolved = path.resolve(config.pomasaHome || process.env.POMASA_HOME || path.join(os.homedir(), '.pomasa'))
+  const resolved = path.resolve(config.pomasaHome || process.env.POMASA_HOME || path.join(userHome(), '.pomasa'))
   try { return fs.realpathSync(resolved) } catch { return resolved }
 }
 
@@ -50,10 +49,10 @@ export function hiddenMarkerPath(root) {
  * root, producing a doubled `C:\C:\...` prefix that does not exist.
  */
 export function packagedSkillDir() {
-  return fileURLToPath(new URL('../../../skill/', import.meta.url))
+  return modulePath(new URL('../../../skill/', import.meta.url))
 }
 
 /** Checked-in template at repo root (`pomasa-home/`). */
 export function templatePomasaHome() {
-  return fileURLToPath(new URL('../../../pomasa-home', import.meta.url))
+  return modulePath(new URL('../../../pomasa-home', import.meta.url))
 }

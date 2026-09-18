@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import * as fsx from '../file-system/index.js'
 import { masDir, pomasaHome, workspaceDir } from '../paths/index.js'
+import { isPathInside } from '../platform/index.js'
 
 export const DEFAULT_UNIT = 'default'
 export const LEGACY_TASK = 'legacy'
@@ -435,7 +436,7 @@ export function readArtifact(config, masId, unitKey, taskKey, relPath) {
   if (!resolved) throw new Error('task not found')
   const base = path.resolve(resolved.root)
   const target = path.resolve(base, relPath)
-  if (target !== base && !target.startsWith(base + path.sep)) {
+  if (!isPathInside(target, base)) {
     throw new Error('path escapes unit root')
   }
   if (!fs.existsSync(target) || !fs.statSync(target).isFile()) {

@@ -1,6 +1,6 @@
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
+import { dshHome } from '../platform/index.js'
 
 /**
  * Read the user's default agent model from the DSH host's settings.yaml.
@@ -9,7 +9,7 @@ import path from 'node:path'
  */
 export function defaultModel() {
   try {
-    const home = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
+    const home = dshHome()
     const txt = fs.readFileSync(path.join(home, 'settings.yaml'), 'utf8')
     const block = txt.match(/agent-default-model:\s*\n((?:[ \t].*\n)*)/)
     if (!block) return null

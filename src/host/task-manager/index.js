@@ -3,6 +3,7 @@ import path from 'node:path'
 import { loadDescriptor } from '../data/descriptor.js'
 import { masDir } from '../paths/index.js'
 import { revealInFileManager } from '../file-system/reveal.js'
+import { isPathInside } from '../platform/index.js'
 import {
   unitListing,
   unitState,
@@ -115,7 +116,7 @@ export function createHostTaskManager(deps) {
     const base = path.resolve(masRoot(masId))
     let rel = String(relPath || '')
     let target = path.resolve(base, rel)
-    if (target !== base && !target.startsWith(base + path.sep)) {
+    if (!isPathInside(target, base)) {
       return { ok: false, code: 400, error: 'path escapes mas root' }
     }
     if (!fs.existsSync(target) || !fs.statSync(target).isFile()) {
