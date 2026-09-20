@@ -12,3 +12,7 @@ lib/
 # Playwright artifacts
 test-results/
 playwright-report/
+
+references/
+
+temp/pr/2026-9-18/

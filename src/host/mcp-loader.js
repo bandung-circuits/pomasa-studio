@@ -9,7 +9,7 @@
 // restart; editing the yml while dsh is running takes effect on the next
 // restart.
 import path from 'node:path'
-import { readMcpServerConfigs } from './core/mcp-servers.js'
+import { readMcpServerConfigs } from '../runtime/mcp-servers.js'
 
 export async function loadMcpServers(ctx, pomasaHome) {
   let configs

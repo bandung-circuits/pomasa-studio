@@ -35,7 +35,6 @@ mkdir -p "$POMASA_HOME"
 # --- pick install source ---------------------------------------------------
 SPEC="${POMASA_INSTALL_SPEC:-}"
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-DOCK_ROOT="$(cd "$ROOT_DIR" && pwd)/../dsh-app-dock"
 
 # --- the README flow -------------------------------------------------------
 dsh --profile web --help >/dev/null 2>&1
@@ -44,10 +43,7 @@ if [ -n "$SPEC" ]; then
   dsh plugin --profile web add "$SPEC" >/dev/null 2>&1 \
     || { echo "FAIL: dsh plugin add $SPEC" >&2; exit 1; }
 else
-  [ -d "$DOCK_ROOT" ] || { echo "FAIL: dock 仓库不存在 $DOCK_ROOT" >&2; exit 1; }
-  MODE="local-dirs(dock+pomasa)"
-  dsh plugin --profile web add "$DOCK_ROOT" >/dev/null 2>&1 \
-    || { echo "FAIL: dsh plugin add $DOCK_ROOT" >&2; exit 1; }
+  MODE="local-dir(pomasa)"
   dsh plugin --profile web add "$ROOT_DIR" >/dev/null 2>&1 \
     || { echo "FAIL: dsh plugin add $ROOT_DIR" >&2; exit 1; }
 fi
@@ -63,11 +59,14 @@ for f in lib/index.js lib/client.js cordis.patch.yml package.json; do
 done
 grep -q 'pomasa-studio' "$DSH_HOME/profiles/web/package.json" \
   || { echo "FAIL: profile manifest does not list pomasa-studio" >&2; exit 1; }
-grep -q 'dsh-app-dock' "$DSH_HOME/profiles/web/package.json" \
-  || { echo "FAIL: profile manifest does not list dsh-app-dock" >&2; exit 1; }
 
 # --- boot and assert -------------------------------------------------------
-dsh --profile web --no-open --port "$PORT" >"$BASE/dsh.log" 2>&1 &
+# --no-open only exists on newer dsh builds; add it when supported.
+NO_OPEN=()
+if dsh --profile web --help 2>&1 | grep -q -- '--no-open'; then
+  NO_OPEN=(--no-open)
+fi
+dsh --profile web "${NO_OPEN[@]}" --port "$PORT" >"$BASE/dsh.log" 2>&1 &
 DPID=$!
 trap 'kill "$DPID" 2>/dev/null || true; rm -rf "$BASE"' EXIT
 

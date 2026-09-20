@@ -28,7 +28,7 @@ DSH client 槽位规范（`deepseek-harness/packages/extensions/cordis-client-ru
 
 ## 组件规划（自写，全部用 token 变量）
 
-PageHeader、Card、Button（primary / ghost）、Badge、StatusDot（等待/运行中/完成/失败/生成中）、EmptyState、Field（Input / Textarea / Select）、StageStrip、ArtifactCard、ArtifactViewer（内嵌迷你 Markdown 渲染器，React 元素输出，杜绝 innerHTML XSS）、LogPanel（可折叠）、RunSelector、干预输入框。
+PageHeader、Card、Button（primary / ghost）、Badge、StatusDot（等待/运行中/完成/失败/生成中）、EmptyState、Field（Input / Textarea / Select）、**WorkflowCanvas**（orchestrator 行 + 节点卡 + 连线）、ArtifactCard、ArtifactViewer（内嵌迷你 Markdown 渲染器，React 元素输出，杜绝 innerHTML XSS）、LogPanel（可折叠）、RunSelector、**AgentChatPanel**（节点对话 composer）。
 
 ## 视觉规则（写码强制）
 
@@ -51,19 +51,32 @@ PageHeader、Card、Button（primary / ghost）、Badge、StatusDot（等待/运
 - 按钮：`button-primary-fill`、`button-primary-hover`
 - 交互：`interactive-bg-hover`
 
-## 最终界面形态（2026-08-29 定稿）
+## 最终界面形态（2026-09-09 更新：boot + work 五区）
 
 ### 唯一入口：左下角「POMASA Studio」按钮 → `shell.overlay` 工作台面板
 
-Studio 是分栏工作台：左栏 `.ps-nav` MAS 导航（状态点、单元数、上次运行、新建/删除），右栏 `.ps-main` 详情（`.ps-info-bar` 信息条、运行控制、`.ps-stages` 阶段条、`.ps-panel` 产物卡+查看器、蓝图弹窗）。新建表单也在右栏内（非弹窗非整页）。`StudioRoot` 只挂一个槽位：
+面板仍是有界的 `shell.overlay`（透空侧栏、不遮挡会话树）。内部由 **boot 页** 与 **work 页** 两套路由组成（`actions` 事件 `layout.boot` / `layout.work`）。
 
-- **`shell.overlay` 冷启动面板**（id `pomasa-studio`, order 10）：footer 底部按钮开关，任意界面状态可达（含 DSH 0.1 不渲染会话头部的空白会话）。面板是**有界**的：`.ps-shell-root` 全帧 click-through（pointer-events:none），左 264px `.ps-shell-nav` 透空保持侧栏可见可点（侧栏宽 clamp(264,420)，收起为 56px rail），右侧 `.ps-shell-panel` 才 pointer-events:auto。不遮挡、不占屏。
+#### Boot 页（MAS 列表）
+- 顶栏：品牌 + **新建 MAS** + 设置
+- 内容：`MAS-list` 卡片网格；点卡片进入 work 页
+- 新建：`MAS-creator` 二级 overlay 表单
 
-会话内的 `conversation.view` POMASA tab **已移除**（2026-08-29）：面板已覆盖任意状态，tab 无增益，且会话树在面板左侧始终可见。
+#### Work 页（替代旧「左导航 + 右详情」）
+- 顶栏：返回列表 + MAS 名称 + 设置
+- **壳层**（纵向）：title → middle → bottom（状态条，默认可隐藏）
+- **middle**（`grid-view` 横向三栏）：左 `task-tree` | 中央 **WorkStage** | 右 `operation-controller` + **`agent-chat`**
+- **WorkStage**（中央列纵向网格）：上 `nodes-container`（**工作流画布**：orchestrator + 阶段节点、连线、三动作）| 下 `subagent-details`（按 `agentKey` 过滤产物卡）
+- 生成中：middle 仅中央 WorkStage；`agent-processing-bar` 在 bottom 状态条
+- 各 part 经 **PartFrame**（36px 标题 + 内容）；拖拽缝调整栏宽/中央上下比例，尺寸存 `localStorage`（不进设置）
+- 点产物卡 → `file-reader` 弹窗查看
 
-footer 按钮文案为 `POMASA Studio`，用 DSH 标准按钮 token 做成真按钮：收起时 `--dsw-alias-button-floating-fill` 浮起式实心底 + 前置小图标（读起来是按钮不是文字行），打开时 `--dsw-alias-state-business-primary` 强调色实心 + `brand-primary-invert` 白字（与活跃 tab 同款强调色），`aria-expanded` 同步，hover tooltip「打开/收起 POMASA Studio」。`sidebar.footer.action`（order 20）只做面板开关，不调 workspaces/sessions 服务。
+模块地图见 `src/client/*/README.md`；跨组件通信用 `actions` + `locators`（`masId` / `unitKey` / `taskKey` / `agentKey`）。
 
-**创建入口**：`新建 MAS` 按钮**永远在左栏导航头**，右栏任何空态都不放按钮（零 MAS 时右栏是纯引导 hero，指向左栏按钮）。全屏因此只有一处创建入口，无重复。
+#### 仍保留的 DSH 约束
+- 入口在 `dsh-app-dock`，非 `sidebar.footer.action`
+- 会话内 `conversation.view` tab 已移除
+- client 源码由 `scripts/bundle-client.mjs` 按依赖序拼接，不可 `import` 第三方 UI 库
 
 ### 工作台与输入区
 

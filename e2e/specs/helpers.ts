@@ -1,9 +1,7 @@
 import { test, type Page } from '@playwright/test'
 
-// The Studio workbench has a single entry: the app dock (dsh-app-dock) toggles
-// the shell.overlay panel (bounded to the main content area, DSH sidebar stays
-// visible). The in-session conversation.view tab and the footer launcher no
-// longer exist.
+// The Studio workbench opens from the footer startup button (sidebar.footer.action
+// → DSH footArea), toggling the shell.overlay panel.
 async function pomasaVisible(page: Page) {
   return await page.locator('.ps-workbench').first().isVisible().catch(() => false)
 }
@@ -34,13 +32,11 @@ export async function ensureSession(page: Page): Promise<void> {
   }
   if (await pomasaVisible(page)) return
 
-  // Entry via the app dock: POMASA Studio renders its icon directly in the
-  // footer grid; one programmatic click opens the workbench (no intermediate
-  // dock panel). $eval so no overlay interception can swallow the event.
+  // Entry via footer startup button in the DSH sidebar foot area.
   const click = (selector: string) => page.$eval(selector, (el) => el.click())
-  await page.waitForSelector('[data-dock-app="pomasa-studio"]', { timeout: 60_000 }).catch(() => {})
-  if (await page.$('[data-dock-app="pomasa-studio"]')) {
-    await click('[data-dock-app="pomasa-studio"]')
+  await page.waitForSelector('[data-ps-startup="pomasa-studio"]', { timeout: 60_000 }).catch(() => {})
+  if (await page.$('[data-ps-startup="pomasa-studio"]')) {
+    await click('[data-ps-startup="pomasa-studio"]')
     if (await waitForWorkbench(page)) return
   }
 

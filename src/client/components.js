@@ -2,6 +2,9 @@
 // Convention: components take a props object and read children from
 // props.children (React-invoked) OR from a positional second arg (direct JS
 // calls like psField({label}, child)). `k()` resolves both.
+
+import { t } from './i18n.js'
+import { MASA_MEME, MASA_MEME_URL } from './meme.js'
 function k(props, children) {
   // React's server renderer passes an empty object {} as the 2nd arg to
   // function components; treat it as "not provided".
@@ -12,7 +15,7 @@ function k(props, children) {
   return props && props.children
 }
 
-function psCard(props, children) {
+export function psCard(props, children) {
   const cls = ['ps-card']
   if (props.className) cls.push(props.className)
   const rest = Object.assign({}, props)
@@ -21,20 +24,7 @@ function psCard(props, children) {
   return h('div', Object.assign({}, rest, { className: cls.join(' ') }), k(props, children))
 }
 
-function psBtn(props, children) {
-  const cls = ['ps-btn']
-  if (props.primary) cls.push('primary')
-  if (props.ghost) cls.push('ghost')
-  if (props.className) cls.push(props.className)
-  const rest = Object.assign({}, props)
-  delete rest.primary
-  delete rest.ghost
-  delete rest.children
-  delete rest.className
-  return h('button', Object.assign({}, rest, { className: cls.join(' '), type: props.type || 'button' }), k(props, children))
-}
-
-function psBadge(props, children) {
+export function psBadge(props, children) {
   const status = (typeof props === 'string' ? props : props.status) || 'idle'
   return h('span', { className: 'ps-badge ' + status },
     h('span', { className: 'dot' }),
@@ -42,7 +32,7 @@ function psBadge(props, children) {
   )
 }
 
-function psEmpty(props, children) {
+export function psEmpty(props, children) {
   const kc = k(props, children)
   let title, hint
   if (typeof props === 'string') {
@@ -59,7 +49,7 @@ function psEmpty(props, children) {
   )
 }
 
-function psField(props, children) {
+export function psField(props, children) {
   return h('div', { className: 'ps-field' },
     props.label ? h('label', null, props.label) : null,
     k(props, children),
@@ -67,24 +57,24 @@ function psField(props, children) {
   )
 }
 
-function psInput(props) {
+export function psInput(props) {
   const rest = Object.assign({}, props)
   delete rest.children
   return h('input', Object.assign({ className: 'ps-input' }, rest))
 }
 
-function psTextarea(props) {
+export function psTextarea(props) {
   const rest = Object.assign({}, props)
   delete rest.children
   return h('textarea', Object.assign({ className: 'ps-textarea' }, rest))
 }
 
 const MAS_STATUS_TEXT = { idle: () => t('st.idle'), running: () => t('st.running'), generating: () => t('st.generating'), 'gen-failed': () => t('st.gen-failed'), 'run-failed': () => t('st.run-failed'), completed: () => t('st.completed'), failed: () => t('st.failed') }
-const MAS_STATUS_BADGE = { idle: 'idle', running: 'running', generating: 'generating', 'gen-failed': 'failed', 'run-failed': 'failed', completed: 'completed', failed: 'failed' }
-const STAGE_STATUS_TEXT = { waiting: () => t('stage.waiting'), active: () => t('stage.active'), completed: () => t('stage.completed'), failed: () => t('stage.failed'), skipped: () => t('stage.skipped'), aborted: () => t('stage.aborted') }
-const STAGE_STATUS_BADGE = { waiting: 'idle', active: 'running', completed: 'completed', failed: 'failed', skipped: 'idle', aborted: 'err' }
+export const MAS_STATUS_BADGE = { idle: 'idle', running: 'running', generating: 'generating', 'gen-failed': 'failed', 'run-failed': 'failed', completed: 'completed', failed: 'failed' }
+export const STAGE_STATUS_TEXT = { waiting: () => t('stage.waiting'), active: () => t('stage.active'), completed: () => t('stage.completed'), failed: () => t('stage.failed'), skipped: () => t('stage.skipped'), aborted: () => t('stage.aborted') }
+export const STAGE_STATUS_BADGE = { waiting: 'idle', active: 'running', completed: 'completed', failed: 'failed', skipped: 'idle', aborted: 'err' }
 
-function fmtTime(ts) {
+export function fmtTime(ts) {
   if (!ts) return '—'
   const d = new Date(ts)
   const pad = (n) => String(n).padStart(2, '0')
