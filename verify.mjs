@@ -269,9 +269,10 @@ test('L1 units: overlapping declared + enumerated index dedupe to one row', () =
   const d = loadDescriptor(path.join(home, 'gs'))
   const listing = unitListing({ pomasaHome: home }, d, 'gs')
   const keys = listing.map((u) => u.key)
-  assert.deepEqual(keys, ['nepal', 'india', 'thailand'])
-  assert.equal(new Set(keys).size, keys.length)
-  listing.forEach((u) => assert.equal(u.source, 'declared')) // declared wins
+  const countries = keys.filter((k) => k !== DEFAULT_UNIT)
+  assert.deepEqual(countries.sort(), ['india', 'nepal', 'thailand'])
+  assert.equal(new Set(countries).size, countries.length)
+  listing.filter((u) => countries.includes(u.key)).forEach((u) => assert.equal(u.source, 'declared')) // declared wins
 })
 
 test('L1 units: enumerated fills gaps not in declared list', () => {
@@ -295,8 +296,10 @@ test('L1 units: enumerated fills gaps not in declared list', () => {
   const d = loadDescriptor(path.join(home, 'mix'))
   const listing = unitListing({ pomasaHome: home }, d, 'mix')
   const keys = listing.map((u) => u.key)
-  assert.deepEqual(keys, ['nepal', 'bangladesh'])
-  assert.deepEqual(listing.map((u) => u.source), ['declared', 'enumerated'])
+  const countries = keys.filter((k) => k !== DEFAULT_UNIT)
+  assert.deepEqual(countries.sort(), ['bangladesh', 'nepal'])
+  assert.equal(listing.find((u) => u.key === 'nepal').source, 'declared')
+  assert.equal(listing.find((u) => u.key === 'bangladesh').source, 'enumerated')
 })
 
 test('L1 state: aggregates run.json timeline and index instances', () => {
@@ -1104,10 +1107,10 @@ test('L2 client bundle: loads and registers footer startup + shell.overlay', () 
   assert.match(src, /\bCSS = `/)
   assert.match(src, /@media \(max-width: 820px\)/)
   assert.match(src, /\.ps-shell-panel/)
-  // markdown-it is esbuild-inlined as the __psMd engine; the hand-rolled
+  // markdown-it is esbuild-bundled into lib/client.js; the hand-rolled
   // renderer (INLINE_RE tokens) must be gone.
-  assert.match(src, /__psMd/)
   assert.match(src, /footnote_block_open/)
+  assert.match(src, /markdown-it/)
   assert.doesNotMatch(src, /INLINE_RE/)
   const registrations = []
   const loaded = []
@@ -1206,6 +1209,7 @@ test('L2 client renders with real React (guards positional-children bugs)', asyn
       },
     },
     URL, setTimeout, clearTimeout,
+    atob, btoa,
   })
   vm.runInContext(src, ctx)
   assert.ok(ps, 'test bundle did not register via __ModuleLoader__')
