@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../auth'
 import { openPomasaTab } from './helpers'
 
 test('POMASA Studio opens the workbench', async ({ page }) => {

@@ -1,0 +1,53 @@
+name: CI
+
+# L1 单元 + L2 host 集成（verify）→ 包完整性（test:pack）→
+# 固定版本的官方 dsh web host 上的 L4a 浏览器 e2e（含 dsh-app-dock 坞入口）。
+# dsh 的 client API 迭代快，CI 用固定 Harness 版本保证信号稳定；升级 dsh 时
+# 同步更新 DSH_VERSION，让兼容性回归直接红在 CI 上。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  DSH_VERSION: 0.2.0-rc.2
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # dsh 的 plugin 管理器用 pnpm 落盘插件
+      - name: Enable pnpm
+        run: corepack enable && corepack prepare pnpm@10 --activate
+
+      # e2e servers.mjs 会把 ../dsh-app-dock 一起挂进 web profile（坞入口）
+      - name: Checkout dsh-app-dock sibling
+        run: git clone --depth 1 https://github.com/bandung-circuits/dsh-app-dock.git ../dsh-app-dock
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify (L1 unit + L2 host integration)
+        run: npm run verify
+
+      - name: Package integrity
+        run: npm run test:pack
+
+      - name: Install pinned dsh
+        run: npm install -g @deepseek-ai/dsh@${DSH_VERSION}
+
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser e2e on real dsh web host
+        run: npm run test:e2e

@@ -16,7 +16,9 @@ export default defineConfig({
   },
   webServer: {
     command: 'node servers.mjs',
-    url: 'http://127.0.0.1:43121/pomasa/mas.list',
+    // 0.2.x 起 web host 强制 token 鉴权，任何路径对未认证请求都回 401，
+    // 所以这里只等 TCP 端口就绪；token URL 由 servers.mjs 写盘、auth.ts 消费。
+    port: 43121,
     reuseExistingServer: false,
     timeout: 120_000,
   },

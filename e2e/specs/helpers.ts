@@ -1,4 +1,4 @@
-import { test, type Page } from '@playwright/test'
+import { test, type Page } from '../auth'
 
 // The Studio workbench has a single entry: the app dock (dsh-app-dock) toggles
 // the shell.overlay panel (bounded to the main content area, DSH sidebar stays

@@ -12,3 +12,4 @@ lib/
 # Playwright artifacts
 test-results/
 playwright-report/
+.dsh-e2e-url

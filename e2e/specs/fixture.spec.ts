@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../auth'
 import { openPomasaTab } from './helpers'
 
 // The black-myth-zhong-kui fixture is a verbatim copy of a REAL generated MAS

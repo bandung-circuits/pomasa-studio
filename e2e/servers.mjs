@@ -28,6 +28,7 @@ function cleanup() {
     fs.rmSync(base, { recursive: true, force: true })
   } catch { /* ignore */ }
 }
+process.on('exit', () => { try { fs.rmSync(URL_FILE, { force: true }) } catch { /* ignore */ } })
 process.on('exit', cleanup)
 process.on('SIGTERM', () => { cleanup(); process.exit(0) })
 process.on('SIGINT', () => { cleanup(); process.exit(0) })
@@ -65,21 +66,28 @@ if (process.env.POMASA_E2E_SRC_HOME === 'user') {
   execFileSync('dsh', ['plugin', '--profile', 'web', 'add', ROOT], { env, stdio: 'ignore' })
 }
 
+// 0.2.x 起 web host 强制 token 鉴权（cookie 由首次带 token 访问下发）。
+// 捕获 dsh stdout 里的带 token URL 写盘，供 e2e/auth.ts 读取。
+const URL_FILE = path.join(ROOT, 'e2e', '.dsh-e2e-url')
+let dshOut = ''
 proc = spawn('dsh', ['--profile', 'web', '--no-open', '--port', String(PORT), '--trusted-host', `127.0.0.1:${PORT}`], { env })
-proc.stdout?.on('data', () => {})
+proc.stdout?.on('data', (chunk) => {
+  dshOut += chunk
+  process.stdout.write(chunk)
+  const m = dshOut.match(/http:\/\/127\.0\.0\.1:\d+\/\?token=[A-Za-z0-9_-]+/)
+  if (m) { try { fs.writeFileSync(URL_FILE, m[0]) } catch { /* ignore */ } }
+})
 proc.stderr?.on('data', () => {})
 
 for (let i = 0; i < 120; i += 1) {
   await new Promise((r) => setTimeout(r, 500))
   try {
-    const res = await fetch(`http://127.0.0.1:${PORT}/pomasa/mas.list`)
-    if (res.ok) {
-      const body = await res.json()
-      if (body && body.ok) {
-        console.log(`POMASA_STUDIO_E2E_READY http://127.0.0.1:${PORT}`)
-        setInterval(() => {}, 1 << 30)
-        break
-      }
+    // 0.2.x 鉴权会挡掉未带 cookie 的 API 调用，就绪判定只看端口/HTTP 已应答。
+    const res = await fetch(`http://127.0.0.1:${PORT}/`)
+    if (res.status > 0 && res.status < 500) {
+      console.log(`POMASA_STUDIO_E2E_READY ${URL_FILE}`)
+      setInterval(() => {}, 1 << 30)
+      break
     }
   } catch { /* not up yet */ }
   if (i === 119) {
