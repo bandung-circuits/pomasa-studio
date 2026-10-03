@@ -1,25 +1,23 @@
 #!/usr/bin/env bash
-# pomasa-studio pre-push CI.
+# pre-push 本地 CI：固定 dsh 版本的端到端验证。
 #
-#   npm run verify          L1 unit + L2 host + client bundle smoke (no dsh)
-#   npm run test:install    pack current tree → dsh plugin add → real dsh boot
-#                           (skips with a note when dsh/pnpm are missing, or
-#                           when POMASA_SKIP_INSTALL=1)
+#   scripts/ci.sh            verify + 包完整性 + 真实宿主 e2e（dsh 版本见
+#                            scripts/dsh-version，仓库内缓存，不碰全局）
+#   scripts/install-smoke.sh README 安装路径冒烟（dsh/pnpm 缺失时跳过并提示）
 #
-# Install once per clone:  npm run hooks:install   (git config core.hooksPath .githooks)
+# 逃生口：SKIP_CI=1 git push ...（非必要别用）
+# 一次性安装：npm run hooks:install（git config core.hooksPath .githooks）
 set -uo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
-echo "== pomasa-studio pre-push: verify =="
-npm run verify || { echo "FAIL: npm run verify"; exit 1; }
+echo "== pre-push: local CI (pinned dsh) =="
+bash "$ROOT/scripts/ci.sh" || { echo "FAIL: local CI"; exit 1; }
 
-echo "== pomasa-studio pre-push: install smoke (README flow, hermetic) =="
-if [ "${POMASA_SKIP_INSTALL:-0}" = "1" ]; then
-  echo "POMASA_SKIP_INSTALL=1 — install smoke skipped"
-elif ! command -v dsh >/dev/null 2>&1 || ! command -v pnpm >/dev/null 2>&1; then
-  echo "dsh/pnpm not found on PATH — install smoke skipped (verify still gates the push)"
+echo "== pre-push: install smoke (README flow, hermetic) =="
+if ! command -v dsh >/dev/null 2>&1 || ! command -v pnpm >/dev/null 2>&1; then
+  echo "dsh/pnpm not found on PATH — install smoke skipped (e2e already gated this push)"
 else
   bash scripts/install-smoke.sh || { echo "FAIL: install smoke"; exit 1; }
 fi

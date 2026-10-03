@@ -13,3 +13,4 @@ lib/
 test-results/
 playwright-report/
 .dsh-e2e-url
+.dsh-ci/

@@ -10,7 +10,32 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
+
+// 0.2.x 的兼容门会参考 registry 上"已发布"的插件元数据；本地 checkout 往往
+// 已放宽 peers 但新版本尚未发布（如 dock@0.1.4 vs 本地 0.1.5）。add 被拒时
+// 对该精确版本授 allow-version 再重试 —— 本地代码即真相，发布后走不进此分支。
+function addPluginWithCompatRetry(env, spec, published) {
+  const base = ['plugin', '--profile', 'web']
+  const opts = { env, stdio: 'ignore' }
+  const allowAll = () => {
+    for (const p of published) {
+      try { execFileSync('dsh', [...base, 'allow-version', p, '--dsh-version', process.env.DSH_VERSION, '--accept-risk'], opts) } catch { /* ignore */ }
+    }
+  }
+  try {
+    execFileSync('dsh', [...base, 'add', spec], opts)
+    return
+  } catch { /* 落入豁免重试 */ }
+  for (let round = 0; round < 3; round += 1) {
+    allowAll()
+    try {
+      execFileSync('dsh', [...base, 'add', spec], opts)
+      return
+    } catch { /* 再来一轮 */ }
+  }
+  // 最后一次把错误暴露出来
+  execFileSync('dsh', [...base, 'add', spec], { env, stdio: 'inherit' })
+}const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const SEED = path.join(ROOT, 'e2e', 'fixture-mas')
 const PORT = Number(process.env.POMASA_E2E_PORT || 43121)
 
@@ -57,13 +82,13 @@ if (process.env.POMASA_E2E_SRC_HOME === 'user') {
   })
   execFileSync('dsh', ['--profile', 'web', '--help'], { env, stdio: 'ignore' })
   // 坞先装（bundles 先于本插件，register 发生在本插件 apply 之前，才能入坞）
-  execFileSync('dsh', ['plugin', '--profile', 'web', 'add', path.join(ROOT, '..', 'dsh-app-dock')], { env, stdio: 'ignore' })
-  execFileSync('dsh', ['plugin', '--profile', 'web', 'add', ROOT], { env, stdio: 'ignore' })
+  addPluginWithCompatRetry(env, path.join(ROOT, '..', 'dsh-app-dock'), ['dsh-app-dock@0.1.4','dsh-app-dock@0.1.3','dsh-app-dock@0.1.2'])
+  addPluginWithCompatRetry(env, ROOT, ['pomasa-studio@0.3.0','pomasa-studio@0.2.5'])
 } else {
   execFileSync('dsh', ['--profile', 'web', '--help'], { env, stdio: 'ignore' })
   // 坞先装（bundles 先于本插件，register 发生在本插件 apply 之前，才能入坞）
-  execFileSync('dsh', ['plugin', '--profile', 'web', 'add', path.join(ROOT, '..', 'dsh-app-dock')], { env, stdio: 'ignore' })
-  execFileSync('dsh', ['plugin', '--profile', 'web', 'add', ROOT], { env, stdio: 'ignore' })
+  addPluginWithCompatRetry(env, path.join(ROOT, '..', 'dsh-app-dock'), ['dsh-app-dock@0.1.4','dsh-app-dock@0.1.3','dsh-app-dock@0.1.2'])
+  addPluginWithCompatRetry(env, ROOT, ['pomasa-studio@0.3.0','pomasa-studio@0.2.5'])
 }
 
 // 0.2.x 起 web host 强制 token 鉴权（cookie 由首次带 token 访问下发）。

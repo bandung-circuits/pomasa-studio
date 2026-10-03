@@ -41,6 +41,10 @@ export const test = base.extend({
     await page.goto(entry, { waitUntil: 'domcontentloaded' })
     // 回到根路径，使 spec 里首个 goto('/') 行为与旧版一致。
     await page.goto(new URL('/', entry).toString(), { waitUntil: 'domcontentloaded' })
+    // 0.2.x 在启动后不久会对插件做一次 reconcile，触发 client bundle 重放并
+    // 重置 shell.overlay 面板；等它过去并重载一次，避免撞掉交互中的用例。
+    await page.waitForTimeout(6000)
+    await page.reload({ waitUntil: 'domcontentloaded' })
     await use(page)
   },
 })
