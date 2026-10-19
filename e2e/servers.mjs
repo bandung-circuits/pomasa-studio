@@ -81,13 +81,9 @@ if (process.env.POMASA_E2E_SRC_HOME === 'user') {
     filter: (p) => !p.includes('node_modules') && !p.split(path.sep).includes('profiles'),
   })
   execFileSync('dsh', ['--profile', 'web', '--help'], { env, stdio: 'ignore' })
-  // 坞先装（bundles 先于本插件，register 发生在本插件 apply 之前，才能入坞）
-  addPluginWithCompatRetry(env, path.join(ROOT, '..', 'dsh-app-dock'), ['dsh-app-dock@0.1.4','dsh-app-dock@0.1.3','dsh-app-dock@0.1.2'])
   addPluginWithCompatRetry(env, ROOT, ['pomasa-studio@0.3.0','pomasa-studio@0.2.5'])
 } else {
   execFileSync('dsh', ['--profile', 'web', '--help'], { env, stdio: 'ignore' })
-  // 坞先装（bundles 先于本插件，register 发生在本插件 apply 之前，才能入坞）
-  addPluginWithCompatRetry(env, path.join(ROOT, '..', 'dsh-app-dock'), ['dsh-app-dock@0.1.4','dsh-app-dock@0.1.3','dsh-app-dock@0.1.2'])
   addPluginWithCompatRetry(env, ROOT, ['pomasa-studio@0.3.0','pomasa-studio@0.2.5'])
 }
 

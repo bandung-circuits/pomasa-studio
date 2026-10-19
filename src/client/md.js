@@ -1,14 +1,18 @@
 // Markdown rendering for the artifact viewer, via markdown-it +
-// markdown-it-footnote (the same engine Auctor ships). scripts/md-api.mjs
-// is esbuild-bundled into the client as the __psMd global by
-// scripts/bundle-client.mjs; html: false keeps raw HTML escaped, so artifact
+// markdown-it-footnote (the same engine Auctor ships). esbuild bundles the
+// engine into lib/client.js; html: false keeps raw HTML escaped, so artifact
 // content cannot inject markup. Footnotes render into a labelled block.
+import MarkdownIt from 'markdown-it'
+import footnote from 'markdown-it-footnote'
+import { t } from './i18n.js'
+
 let _md = null
 let _hidx = 0
+
 function getMd() {
   if (_md) return _md
-  if (typeof __psMd === 'undefined' || !__psMd.createMarkdown) return null
-  const md = __psMd.createMarkdown()
+  const md = new MarkdownIt({ html: false, linkify: false, typographer: false })
+  md.use(footnote)
   const esc = (s) => md.utils.escapeHtml(String(s))
   // Headings 1–4 carry a running index (data-h) so a later TOC can jump,
   // mirroring Auctor.
@@ -44,15 +48,9 @@ function getMd() {
   return md
 }
 
-function renderMarkdown(md) {
+export function renderMarkdown(md) {
   const engine = getMd()
-  let html
-  if (engine) {
-    _hidx = 0
-    html = engine.render(String(md == null ? '' : md))
-  } else {
-    // No engine available (unbundled dev): render as escaped plain text.
-    html = '<p>' + String(md == null ? '' : md).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p>'
-  }
+  _hidx = 0
+  const html = engine.render(String(md == null ? '' : md))
   return h('div', { className: 'ps-md', dangerouslySetInnerHTML: { __html: html } })
 }

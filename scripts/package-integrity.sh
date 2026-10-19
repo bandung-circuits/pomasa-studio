@@ -27,8 +27,9 @@ for need in \
   package/pomasa-home/AGENTS.md \
   package/pomasa-home/.dsh/mcp.servers.yml \
   package/scripts/bundle-client.mjs \
+  package/scripts/react-shim.js \
   package/src/host/apply.js \
-  package/src/host/core/paths.js; do
+  package/src/host/paths/index.js; do
   if ! grep -qFx "$need" "$LIST"; then
     echo "FAIL: tarball missing $need" >&2
     FAIL=1

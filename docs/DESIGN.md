@@ -94,21 +94,23 @@
 | `mas.list` | 无 | 注册表条目加快速状态 |
 | `mas.get` | masId | pomasa.json 静态描述符（含 work 段） |
 | `generation.status` | masId | generating、completed、failed + 当前环节短语 |
-| `unit.list` | masId | 单元列表，每个单元读单元根 run.json 概要；未建目录而在 units_index 出现过的单元显示为"已枚举未运行" |
-| `unit.state` | masId, unitKey | 单元根 run.json + 各阶段 index 概要 + 活动脉冲 |
-| `artifact.read` | masId, unitKey, relPath | 文件内容（防路径穿越） |
-| `event.stream` | masId, unitKey | 活动事件推送（WS、SSE、RPC），轮询兜底 |
+| `unit.list` | masId | 分组单元树：`{ key, kind, tasks: [{ id, status, run }] }`；`kind` 为 `date` / `country` / `default`；始终含 `default` |
+| `unit.state` | masId, unitKey, taskKey | 任务根 run.json + 各阶段 index 概要 + 活动脉冲 |
+| `artifact.read` | masId, unitKey, taskKey, relPath | 文件内容（防路径穿越；相对任务根） |
+| `event.stream` | masId, unitKey, taskKey | 活动事件推送（WS、SSE、RPC），轮询兜底 |
 | `generation.log` | masId | 生成会话完整记录（消息、工具调用、AI 思考过程），流式或翻页 |
-| `run.log` | masId, unitKey | 运行会话完整记录，同上 |
+| `run.log` | masId, unitKey, taskKey | 运行会话完整记录，同上 |
 
 写：
 
 | 接口 | 输入 | 效果 |
 |---|---|---|
 | `mas.create` | input（user_input 字段） | 建占位目录、起生成会话、返回 masId |
-| `run.start` | masId, opts | opts 含 units（数组或 "all"）或 auto（默认键，见 3.2）；single 模式忽略 opts |
-| `run.intervene` | masId, unitKey, message | 向该单元运行会话注入自由文本 |
-| `run.cancel` | masId, unitKey | 取消该单元运行会话 |
+| `unit.add` | masId, key, kind | 新建分组单元目录并写入 `work.units`（`kind`: `date` / `country` / `default`） |
+| `task.create` | masId, unit | 在指定单元下创建新任务目录，返回 `taskId`（`YYYYMMDD-HHmmss`） |
+| `run.start` | masId, unit, task, opts | 对指定任务根启动一次运行；未传 task 则先创建；`fresh` 只清任务目录；重跑应 `task.create` 再 `run.start` |
+| `run.intervene` | masId, unitKey, taskKey, message | 向该任务运行会话注入自由文本 |
+| `run.cancel` | masId, unitKey, taskKey | 取消该任务运行会话 |
 
 ### 2.2 实现要点
 
@@ -117,11 +119,11 @@
 - `generation.log`、`run.log` 读运行时会话存储（DSH 的会话记录），不属于 `~/.pomasa` 的文件事实，属运行时绑定的追溯能力。无日志源（如未来非 DSH 运行时）时该面板自动隐藏，不影响其它功能。
 - 研究工作台未来就是这个接口清单的独立实现，UI 端只依赖这些接口。
 
-推导说明：此表逐行对应第一节的行为清单，没有为接口而接口的条目。multi 模式下"运行选择器"直接对应 unit.list 与 run.start(units)。
+推导说明：此表逐行对应第一节的行为清单。左栏任务树对应 `unit.list`；选中任务后运行对应 `run.start(unit, task)`；重跑通过 `task.create` 新建目录，不覆盖旧 `run.json`。
 
 ## 3. 元数据规定与生成时机
 
-### 3.1 文件布局（运行单元泛化）
+### 3.1 文件布局（分组单元 + 任务运行）
 
 ```
 ~/.pomasa/
@@ -133,17 +135,23 @@
     ├── references/               # 参考资料
     ├── units.json                # 可选：运行期枚举出的单元清单
     └── workspace/
-        ├── <unit-key>/           # multi 模式：单元根，键为国名、日期等
-        │   ├── run.json          # 该单元运行记录（动态状态机）
-        │   ├── events.jsonl      # 可选活动流（非 DSH 运行时兜底）
-        │   └── NN.<stage>/       # 各阶段产物目录，内含 index.json
-        └── (stage 目录直接铺开)   # single 模式：workspace 本身就是单元根
+        ├── default/              # 默认分组（原 single 模式、未归类任务）
+        │   └── <task-id>/        # 一次完整流水线运行
+        │       ├── run.json      # 该次运行记录（动态状态机）
+        │       └── NN.<stage>/   # 各阶段产物目录，内含 index.json
+        ├── brasil/               # kind=country 的分组单元（仅元数据，不进路径）
+        │   ├── 20260909-131415/
+        │   └── 20260909-140000/  # 重跑 = 新 task 目录
+        └── 2026-09-09/           # kind=date 的分组单元
+            └── 131415/
 ```
 
 关键：
-- run.json 的位置规则统一为"单元根"。single 模式的单元根就是 workspace/，multi 模式是 workspace/\<unit-key\>/。
-- 单元目录自包含。删除一个单元就是删一个目录，备份就是拷一个目录。
-- 不设 output 目录。最终报告就是末阶段的一个普通产物（single-file 契约，如 05.report/final_report.md）。docx / pdf 导出是查看器能力，按需转换，MAS 不产出交付格式文件（Harness 场景仍可用 STR-09 自建导出管线，Studio 不依赖它）。
+- **unit** = 分组文件夹（类别）；**task** = 一次完整流水线运行。路径为 `workspace/{unit}/{taskId}/`。
+- `run.json` 与阶段产物均在 **任务根**（`workspace/{unit}/{taskId}/`），不在 unit 根。
+- `work.units` 为 `{ key, kind }[]`（`kind`: `date` | `country` | `default`）；旧字符串数组读成 `kind: country`。
+- 旧盘只读兼容（不搬文件）：`workspace/run.json` → 虚拟 `default/legacy`；`workspace/{unit}/run.json` 且无子 task → `{unit}/legacy`。
+- 新运行一律写 `workspace/{unit}/{taskId}/`。
 
 ### 3.2 静态描述符 pomasa.json
 
@@ -204,7 +212,7 @@ work 段字段：
 
 - `mode`：`single` 或 `multi`。
 - `dimensions`：单元键的物理意义，如 `["country"]`、`["date"]`。多注重按维嵌套，`["country", "year"]` 对应 `workspace/{country}/{year}/`。
-- `units`：预声明单元列表（静态已知时），或 `null` 表示运行期枚举。时间轴 multi（如 news-on-china）通常不预声明，run.start 默认键就是当天。
+- `units`：预声明分组单元列表。元素为 `{ key, kind }` 或旧式字符串（读成 `kind: country`）；`null` 表示运行期枚举。始终存在逻辑分组 `default`。
 - `units_index`：运行期枚举结果写出的文件路径（相对 MAS 家目录），由 orchestrator 的枚举阶段（如 country_enum）写入。
 - `unit_layout`：单元目录的 glob 模板，UI 靠它列出单元。
 
@@ -228,7 +236,7 @@ single 模式的 work 段是最简形：
 | multi-file | 通用回退（若干松散 md） | 阶段 index.json（可选） |
 | single-file | 单个文档（常为交付物） | 阶段 index.json（单条） |
 
-契约的 `path_glob`、`index_path` 相对单元根。UI 按 mode 解析基址：single 对 workspace/，multi 对 workspace/\<unit-key\>/。
+契约的 `path_glob`、`index_path` 相对 **任务根**。UI 解析基址为 `workspace/{unit}/{taskId}/`；旧盘 legacy 任务仍相对其虚拟任务根。
 
 ### 3.4 阶段实例切片 index.json（动态）
 
@@ -253,9 +261,9 @@ single 模式的 work 段是最简形：
 
 规则：id、title、file 必填；subtitle、summary、size、created_at、producer 建议。后五项缺失不阻塞展示，校验不强制。
 
-### 3.5 运行记录 run.json（动态，单元级状态机）
+### 3.5 运行记录 run.json（动态，任务级状态机）
 
-由 orchestrator 在阶段边界增量更新：单元运行开始时写初始骨架，阶段进入、完成、失败时更新对应条目，单元运行结束封口。
+由 orchestrator 在阶段边界增量更新：任务运行开始时写初始骨架，阶段进入、完成、失败时更新对应条目，任务运行结束封口。位于 `workspace/{unit}/{taskId}/run.json`。
 
 ```json
 {
@@ -299,20 +307,21 @@ user_input
 运行时（每个单元）：
 
 ```
-run.start（single 无键；multi 指定单元或 all；时间轴 multi 默认当天）
-  -> 运行会话（orchestrator 蓝图）
+run.start（指定 unit + task；未传 task 则 task.create）
+  -> 运行会话（orchestrator 蓝图），cwd = 任务根
   -> 需要枚举时，枚举阶段写 units.json
   -> 阶段 agent 写产物并更新 index.json
   -> orchestrator 在阶段边界更新 run.json
   -> 插件 watch ~/.pomasa/<id>/ 刷新 UI
   -> 活动层订阅会话事件
+重跑：task.create（新 taskId 目录）再 run.start，不覆盖旧 run.json
 ```
 
 展示时（每次刷新）：
 
 ```
-详情页 = mas.get（静态）+ unit.state（动态）
-work 段定位单元，契约定容器、index 定实例、文件定内容
+详情页 = mas.get（静态）+ unit.state(unit, task)（动态）
+work 段定位分组单元，task 定位一次运行；契约定容器、index 定实例、文件定内容
 ```
 
 ### 3.7 一致性校验（插件健康检查）
@@ -322,7 +331,7 @@ work 段定位单元，契约定容器、index 定实例、文件定内容
 - 运行中：run.json 阶段状态与 index.json 的修改时间不矛盾（阶段标 completed 但 index 为空允许，但提示）。
 - units.json 枚举出的单元若未建目录、无 run.json，不算异常，属于"已规划未运行"状态。
 
-推导说明：第二节的全部读接口，返回数据都来自这些文件（pomasa.json、run.json、index.json、units.json）加文件本体。元数据文件总共四个，外加每单元一份 run.json。生成时机都标在上文里，全部归到两处：生成器一次写出，运行时增量维护。
+推导说明：第二节的全部读接口，返回数据都来自这些文件（pomasa.json、run.json、index.json、units.json）加文件本体。元数据文件总共四个，外加每 **任务** 一份 run.json。
 
 ## 4. POMASA 新增模式提案
 
@@ -334,12 +343,12 @@ work 段定位单元，契约定容器、index 定实例、文件定内容
 - 必要性：Required。
 
 **OBV-02 Work Unit Declaration（运行单元声明）**
-- 内容：运行按什么研究对象轴组织成相互隔离的单元，是 MAS 的设计决定，由描述符 work 段声明（mode、dimensions、units、units_index、unit_layout）。single 是整体一次运行，multi 是每个研究对象各跑一次、相互隔离；单元可预声明或运行期枚举。
+- 内容：运行按什么研究对象轴组织成 **分组单元**（unit），由描述符 work 段声明（mode、dimensions、units、units_index、unit_layout）。一次完整流水线运行是 **task**，目录为 `workspace/{unit}/{taskId}/`；重跑新建 task，不覆盖旧目录。single 模式任务落在 `default` 分组。
 - 正文包含 3.1、3.2 work 段的 schema 与时机。
 - 必要性：Required。
 
 **OBV-03 Run Manifest（运行清单）**
-- 内容：单元根内写 run.json 状态机，orchestrator 在阶段边界维护；单元根自包含（阶段目录）。
+- 内容：任务根内写 run.json 状态机，orchestrator 在阶段边界维护；任务目录自包含（阶段目录）。
 - 正文包含 3.5 的 schema 与时机。
 - 必要性：Required。
 
@@ -359,9 +368,12 @@ work 段定位单元，契约定容器、index 定实例、文件定内容
 5. 新建表单用 user_input 全量字段（去掉输出格式），留空项由生成器兜底"由 AI 建议"。wiki（BHV-08）不提供。
 6. 会话日志可折叠展开，生成与运行会话同一处理，默认收起，展开含 AI 思考过程（如运行时提供）；日志是追溯面板，不参与状态推导。
 7. （2026-08-29）DSH 集成形态：Studio 拆成左导航右详情的分栏工作台；**唯一入口是左下角 `POMASA Studio` 按钮打开的 `shell.overlay` 有界面板**（不遮挡、任意界面状态可达，含 DSH 0.1 不渲染 tab 条的空白会话）。会话内的 `conversation.view` tab 已移除；全屏覆盖层（旧 `.ps-app-overlay`）废弃。详见 docs/UI.md「DSH 平台要点」。
-8. （2026-08-29）会话与状态模型：每个 MAS 同一时刻只关联一个活会话。**一次 `run.start` = 对一个单元的一次运行，永远人手发起，绝不批量或自动续跑**（multi 一次传多个单元直接拒绝；客户端"运行"按钮只运行当前选中单元）。MAS 状态由会话生命周期 + 文件事实推导，共六态：`generating` / `gen-failed` / `idle` / `running` / `run-failed` / `completed`（语义见 decision 8 上文）。死会话判定：以 **DSH 宿主 agent 注册表**为权威（`ctx.get('agents').get(sessionId)?.status === 'running'`，与 apiserver 会话汇总同源）——宿主内存表与 run.json 都可能在会话中断后过期：run.json 停在 `running` 且 agent 已死 → `run-failed`。宿主重启后 agent 不在注册表即视为死。运行标识：单元键（含义名）+ run.json 的时间戳即一次运行的身份；同一单元重跑会覆盖该单元记录。
+8. （2026-08-29）会话与状态模型：每个 MAS 同一时刻只关联一个活会话。**一次 `run.start` = 对一个 task 的一次运行，永远人手发起，绝不批量或自动续跑**（传多个 unit 直接拒绝；客户端"运行"按钮只运行当前选中 task）。MAS 状态由会话生命周期 + 文件事实推导，共六态：`generating` / `gen-failed` / `idle` / `running` / `run-failed` / `completed`。死会话判定：以 **DSH 宿主 agent 注册表**为权威。运行标识：unit + taskId；**重跑 = 新 task 目录**，不覆盖旧 run.json。registry 中 `lastRunSessionIds` 键为 `{unit}|{task}`。
 9. （2026-08-29）DSH 会话↔工作区入账（平台缺口，实证结论）：会话是否显示在某工作区文件夹下，取决于创建时是否"入账"——只有经工作区流程创建（`sessions.create` 带 workspaceId，内部调 `workspace.attachSession`）的会话才入账。插件的生成/运行会话由宿主 `agents.create` 创建（只带 cwd，不带 workspaceId），DSH 拒绝补挂：`insertSessionBefore` 只对已入账会话排序；宿主插件上下文拿不到 `ctx.workspaceRegistry`（全 profile 实测为 null）；客户端无 attachSession RPC；`agents.create` 拒绝认领已存在会话（"session already exists"）。结论：**在当前 DSH 插件 API 下，插件创建的 agent 会话无法归入工作区**（只能停留在"未分组"），工作区文件夹本身可由客户端创建。修复需 harness 侧支持（如给 `agents.create` 加 workspaceId，或把 workspace.attachSession 暴露给插件）。
-10. （2026-08-29）运行/生成会话改由客户端经工作区流程创建（方向 1，已落地）：宿主 `run.start`/`mas.create` 只做准备并返回 prompt；客户端 `workspaces.connectWorkspace(POMASA)` 建出已入账会话，经 `sessions.prompt` 驱动，再经 `/pomasa/record` 登记会话 id。状态以 DSH agent 注册表存活为权威。会话因此显示在 POMASA 文件夹下（隔离环境已验证：点运行后 workspace.json 的 POMASA 成员出现新会话）。
+10. （2026-08-29）生成会话仍由客户端经 POMASA 工作区入账（`connectWorkspace` + `sessions.prompt` + `/record`）。
+11. （2026-09-10）**运行会话改 host 预建**（决策 9 的 cwd 约束下）：`run.start` 调用 `ctx.agents.create` 在**任务根** cwd 预建编排器与子代理（standby seed，零 LLM）；`setup` 内 `agentPresets.mount` / 子代理 `composeFrom`（与 Web `session.create` 一致，否则无 tools、DSML 泄漏）。`workspace.attachSession` 挂到**任务目录 workspace**。client 仅 `followup` 编排器 sid；已跑坏旧 task 用 New task & run。生成 MAS 仍走 client 入账 POMASA（决策 10）。
+11. （2026-09-09）界面形态：旧「左导航 MAS 列表 + 右详情页」由 **boot 列表页 + work 五区页** 替代（见 docs/UI.md）。文件事实驱动、状态推导、单 task 运行纪律不变；一期中心为只读阶段条，画布连线与右栏 chat 留二期。
+12. （2026-09-09）Unit 分组 + Task 运行树（已落地）：unit 仅为分组文件夹（`default` / 时间 / 国家）；task 才是一次运行。磁盘 `workspace/{unit}/{taskId}/`；左栏按 kind 三段展示 unit→task 树；`unit.add` / `task.create`；旧 `workspace/run.json` 与 `workspace/{unit}/run.json` 只读映射为 legacy task。
 
 ## 附录 A：生成端到端测试结论（2026-08-28）
 

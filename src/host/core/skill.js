@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { pomasaHome, packagedSkillDir } from './paths.js'
+import { pomasaHome, packagedSkillDir } from '../paths/index.js'
 
 /**
  * The POMASA skill snapshot is materialized under ~/.pomasa/skills/pomasa/<version>.
@@ -54,30 +54,4 @@ function migrateLegacySkill(home, target) {
   try {
     fs.rmSync(legacy, { recursive: true, force: true })
   } catch { /* non-fatal */ }
-}
-
-/** The prompt that drives a generation session. */
-export function generationPrompt(skill, masId, masRoot) {
-  return `你是 POMASA 生成器。请严格遵守以下指示完成 MAS 生成：
-
-- 生成器 skill：${path.join(skill, 'SKILL.md')}
-- 用户输入：${path.join(masRoot, 'user_input.md')}
-
-流程：先读 SKILL.md，按其要求先读 pattern-catalog/README.md，再读全部 Required 模式文档（COR-01/02、STR-01/06、BHV-02、QUA-03、OBV-01/02/03），然后读 user_input.md，把完整的 MAS 生成到当前工作目录。
-
-注意：SKILL.md 中的相对路径（如 ./pattern-catalog/）以 ${skill} 目录为基准解析；所有生成输出写入 MAS 根目录 ${masRoot}。
-不要提问，按流程执行。`
-}
-
-/** The prompt that starts a run session for one unit. */
-export function runPrompt(masRoot, unitRoot, unitKey, opts) {
-  const continueNote = opts && opts.mode === 'continue'
-    ? `\n本次运行基于既有成果继续：保留单元根内已有产物，不要清空。严格按照研究者的指令决定保留、改写或删除哪些产物。研究者指令：${opts.instruction || '（无额外指令，在既有成果基础上正常推进）'}\n`
-    : '\n本次运行从干净单元根开始：不要保留、不要沿用上轮产物，按蓝图全新执行。\n'
-  return `你是本 MAS 的编排者（Orchestrator）。本次运行单元：${unitKey ?? 'single'}。
-
-请打开 ${path.join(masRoot, 'agents', '00.orchestrator.md')}，严格按照该蓝图执行本次运行（按 OBV-03 协议创建并维护 ${path.join(unitRoot, 'run.json')}，按需调用各阶段子代理，各阶段按 OBV-01 维护其 index.json）。${continueNote}
-本次运行的单元根（运行沙箱）是：${unitRoot}
-运行期所有文件写入、包括运行笔记，都必须放在单元根内；不要尝试写单元根之外的路径（如 MAS 根的 wip/）。会话的工作目录是 POMASA 工作区，不等于单元根；所有读写请以单元根的绝对路径为准。
-不要提问，按流程执行。`
 }
