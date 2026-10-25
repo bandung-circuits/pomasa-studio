@@ -1,4 +1,7 @@
-import { test, expect } from '@playwright/test'
+// 注意：必须用 auth fixture（token 鉴权引导 + 命中测试降级），不能用原生
+// @playwright/test 的 test——0.2.x 起 web host 强制 token，原生 page 没有
+// token cookie，整个页面只会停在「dsh web authentication required」。
+import { test, expect } from '../auth'
 import { openPomasaTab } from './helpers'
 
 // Generation is MOCKED in the E2E environment (POMASA_TEST_FAST_GENERATION=1,
@@ -14,7 +17,8 @@ test.describe('generation flow (mocked model)', () => {
     page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text().slice(0, 200)) })
 
     await openPomasaTab(page)
-    await page.getByText('新建', { exact: true }).first().click()
+    // 欢迎页入口按钮现为「新建 MAS」（boot.action.create.label），旧文案是「新建」。
+    await page.getByText('新建 MAS', { exact: true }).first().click()
     await page.getByPlaceholder('e.g. llm_south').fill('e2e_mock_gen')
     await page.locator('textarea[placeholder="必填"]').fill('端到端测试（mock 模型）：开源大模型的数字主权影响')
     await page.getByText('生成 MAS', { exact: true }).first().click()

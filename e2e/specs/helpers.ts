@@ -40,6 +40,13 @@ export async function ensureSession(page: Page): Promise<void> {
     if (await waitForWorkbench(page)) return
   }
 
+  // Entry via the dsh-app-dock grid button (dock membership is the default).
+  await page.waitForSelector('[data-dock-app="pomasa-studio"]', { timeout: 30_000 }).catch(() => {})
+  if (await page.$('[data-dock-app="pomasa-studio"]')) {
+    await click('[data-dock-app="pomasa-studio"]')
+    if (await waitForWorkbench(page)) return
+  }
+
   console.log('ensure: FAILED to reach POMASA; body=', (await page.locator('body').innerText()).slice(0, 160).replace(/\n+/g, ' | '))
   test.skip(true, 'POMASA workbench not reachable')
 }

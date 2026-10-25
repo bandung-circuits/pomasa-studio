@@ -235,31 +235,9 @@ export const CSS = `
 .ps-mode-segment { display: flex; gap: 6px; }
 .ps-mode-segment .ps-btn { flex: 1 1 0; min-width: 0; }
 
-/* ---------- footer startup (DSH footArea / sidebar.footer.action) ---------- */
-/* Mirror native Settings trigger (.VOzbGW_trigger) so icon+label share the same box. */
-.dk-block { display: none !important; }
-.hHd-Xa_footerActions { width: 100%; min-width: 0; }
-.ps-startup-btn {
-  box-sizing: border-box;
-  display: flex; align-items: center; gap: 8px; flex: none;
-  width: calc(100% + 8px); height: 34px;
-  margin: 4px -4px; padding: 6px 2px 6px 10px;
-  border: none; border-radius: 12px; background: transparent; overflow: hidden;
-  color: var(--dsw-alias-label-primary); cursor: pointer;
-  font-family: inherit; font-size: 14px; font-weight: 400; line-height: 22px;
-  text-align: left;
-}
-.ps-startup-btn:hover,
-.ps-startup-btn.ps-startup-btn--on { background: var(--dsw-alias-interactive-bg-hover); }
-.ps-startup-btn:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
-.ps-startup-btn.ps-startup-btn--rail {
-  border-radius: 50%; justify-content: center; gap: 0;
-  width: 36px; height: 36px; margin: 8px 0 10px; padding: 0;
-}
-.ps-startup-btn [data-slot="pomasa.trigger"] { display: contents; }
-.ps-startup-btn-icon,
-.ps-startup-btn .ps-icon { flex: none; color: currentColor; line-height: 0; }
-.ps-startup-btn-label { white-space: nowrap; overflow: hidden; color: inherit; font: inherit; }
+/* ---------- footer startup ----------
+   已撤销：PR #3 的 footer 启动按钮方案（.ps-startup-btn 全家 + 隐藏 .dk-block）
+   换回 dsh-app-dock 入坞方案——入口按钮由坞渲染，样式归 dsh-app-dock 管。 */
 
 /* ---------- badges / status ---------- */
 .ps-badge {

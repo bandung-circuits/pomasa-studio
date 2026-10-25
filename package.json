@@ -1,6 +1,6 @@
 {
   "name": "pomasa-studio",
-  "version": "0.3.0",
+  "version": "0.3.2",
   "description": "POMASA Studio: manage all POMASA MASes (list, create via generator, run, inspect artifacts). DSH web-profile plugin.",
   "type": "module",
   "main": "lib/index.js",
@@ -63,6 +63,7 @@
   },
   "dependencies": {
     "docx": "^9.7.1",
+    "dsh-app-dock": "^0.1.2",
     "markdown-it": "^15.0.1",
     "markdown-it-footnote": "^4.0.0"
   }

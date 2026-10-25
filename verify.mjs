@@ -1141,7 +1141,7 @@ test('L2 client bundle: loads and registers footer startup + shell.overlay', () 
             if (name === 'react-dom') return ReactDOM
             throw new Error('unexpected require: ' + name)
           })
-          const expectedSlots = ['sidebar.footer.action', 'shell.overlay']
+          const expectedSlots = ['shell.overlay']
           const vc = {
             inject(slotName, factory) {
               assert.equal(slotName, expectedSlots.shift())
@@ -1161,14 +1161,16 @@ test('L2 client bundle: loads and registers footer startup + shell.overlay', () 
   vm.createContext(sandbox)
   vm.runInContext(src, sandbox)
   assert.deepEqual(loaded, ['pomasa-studio'])
-  assert.equal(registrations.length, 2)
+  // 入坞方案（撤销 PR #3 的 footer 启动按钮）：只占 shell.overlay，入口交给
+  // dsh-app-dock 注册表（apply 里同步注册；注册表未就位时挂 ready 监听）。
+  assert.equal(registrations.length, 1)
   assert.equal(registrations[0].id, 'pomasa-studio')
-  assert.equal(registrations[0].name, 'sidebar.footer.action')
-  assert.equal(registrations[1].id, 'pomasa-studio')
-  assert.equal(registrations[1].name, 'shell.overlay')
+  assert.equal(registrations[0].name, 'shell.overlay')
   assert.ok(!registrations.some((r) => r.name === 'conversation.view'), 'the in-session tab was removed')
-  assert.match(src, /registerStartupButton/)
-  assert.match(src, /["']data-ps-startup["']: ["']pomasa-studio["']/)
+  assert.match(src, /__dshAppDock__\.register/)
+  assert.match(src, /dsh-app-dock:ready/)
+  assert.doesNotMatch(src, /registerStartupButton/)
+  assert.doesNotMatch(src, /["']data-ps-startup["']: ["']pomasa-studio["']/)
 })
 
 async function findPnpmReact() {

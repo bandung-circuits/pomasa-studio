@@ -1,8 +1,7 @@
 // Workbench panel — shell.overlay slot host: panel open state, the sidebar-
-// aligned shell root, and slot mounting (startup button + overlay).
-import { t, useLang } from './i18n.js'
+// aligned shell root, and slot mounting (dock entry + overlay).
+import { t, useLang, langStore } from './i18n.js'
 import { findSidebarCol } from './services/host-adapter.js'
-import { registerStartupButton } from './startup-button/button.js'
 import { StudioRoot } from './workbench/app.js'
 
 export function createWorkbenchPanel() {
@@ -63,7 +62,24 @@ export function WorkbenchPanel(props) {
 }
 
 export function mountWorkbenchPanel(slots, panel, driver) {
-  registerStartupButton(slots, panel, h)
+  // 入坞：dsh-app-dock 是 pomasa-studio 的依赖，入口交给坞（含 ready 延迟注册），
+  // 自占 footer 槽移除（撤销 PR #3 的 footer 启动按钮方案）。容忍加载顺序：
+  // 注册表已就位即注册；否则等 dsh-app-dock:ready 事件（once）。
+  const registerWithDock = () => {
+    if (typeof window === 'undefined' || !window.__dshAppDock__) return
+    window.__dshAppDock__.register({ id: 'pomasa-studio', label: 'POMASA', icon: '◫', order: 40, onToggle: () => panel.toggle() })
+    if (window.__dshAppDock__.lang) {
+      window.__dshAppDock__.lang.subscribe(() => {
+        const v = window.__dshAppDock__.lang.get()
+        if (langStore.val !== v) { langStore.val = v; langStore.emit() }
+      })
+    }
+  }
+  if (typeof window !== 'undefined' && !window.__dshAppDock__) {
+    window.addEventListener('dsh-app-dock:ready', registerWithDock, { once: true })
+  }
+  registerWithDock()
+
   slots.inject('shell.overlay', () => slots.register(
     { name: 'shell.overlay', id: 'pomasa-studio', order: 10, label: t('studio.title') },
     () => h(WorkbenchPanel, { panel, driver }),

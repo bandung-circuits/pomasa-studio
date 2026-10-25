@@ -81,9 +81,12 @@ if (process.env.POMASA_E2E_SRC_HOME === 'user') {
     filter: (p) => !p.includes('node_modules') && !p.split(path.sep).includes('profiles'),
   })
   execFileSync('dsh', ['--profile', 'web', '--help'], { env, stdio: 'ignore' })
+  // 入坞方案：先装 dsh-app-dock（本地 checkout），pomasa 的入口按钮由坞渲染。
+  addPluginWithCompatRetry(env, path.join(ROOT, '..', 'dsh-app-dock'), ['dsh-app-dock@0.1.5','dsh-app-dock@0.1.4'])
   addPluginWithCompatRetry(env, ROOT, ['pomasa-studio@0.3.0','pomasa-studio@0.2.5'])
 } else {
   execFileSync('dsh', ['--profile', 'web', '--help'], { env, stdio: 'ignore' })
+  addPluginWithCompatRetry(env, path.join(ROOT, '..', 'dsh-app-dock'), ['dsh-app-dock@0.1.5','dsh-app-dock@0.1.4'])
   addPluginWithCompatRetry(env, ROOT, ['pomasa-studio@0.3.0','pomasa-studio@0.2.5'])
 }
 
