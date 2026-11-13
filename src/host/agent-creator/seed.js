@@ -35,9 +35,14 @@ export function standbySeed({ userText, assistantText, provider, model, subagent
     content: [{ type: 'text', text: String(userText || '') }],
     source: { kind: 'user' },
   }, { surfaceOp: 'append' })
+  // DSH >= 0.2.x validates assistant message settlement and requires `stream`
+  // to be an array (dsh-session assertAssistantSettlementShape). Harness
+  // 0.1.2-alpha.1 did not read the field, so omitting it was silently fine;
+  // on 0.2.x the whole seed is rejected and agent prebuild fails.
   push('assistant/message', {
     turn: 1,
     step: 1,
+    stream: [],
     message: {
       id: seedMsgId('asst'),
       role: 'assistant',

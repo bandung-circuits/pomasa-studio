@@ -458,6 +458,19 @@ test('L1 prompt i18n: warmup seed follows MAS blueprint language', async () => {
   assert.equal(promptLangFromMasRoot(root), 'en')
 })
 
+test('L1 seed: assistant/message carries a stream array (DSH >= 0.2 settlement contract)', async () => {
+  const { standbySeed } = await import(path.join(ROOT, 'src/host/agent-creator/seed.js'))
+  const events = standbySeed({ userText: 'u', assistantText: 'a', provider: 'p', model: 'm' })
+  const assistant = events.filter((e) => e.type === 'assistant/message')
+  assert.equal(assistant.length, 1)
+  assert.ok(Array.isArray(assistant[0].data.stream), 'assistant/message.data.stream must be an array')
+  // The same field is required on subagent seeds (cold-resume descriptor path).
+  const sub = standbySeed({ userText: 'u', assistantText: 'a', provider: 'p', model: 'm', subagentLabel: 'Helper' })
+  const subAssistant = sub.filter((e) => e.type === 'assistant/message')
+  assert.equal(subAssistant.length, 1)
+  assert.ok(Array.isArray(subAssistant[0].data.stream), 'subagent assistant/message.data.stream must be an array')
+})
+
 /* ================= L2: host integration ================= */
 
 function mockCtx() {
